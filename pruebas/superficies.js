@@ -58,6 +58,34 @@ const path = require('path');
   ok(r.curvas === '100.5,101,101.5,102' && r.mayores === '', 'curvas cada 0.5 m entre 100 y 102 (ninguna mayor de 2.5 m): ' + r.curvas);
   ok(JSON.stringify(r.bordes) === '[40]', 'el borde de la superficie es un lazo de 40 vértices');
   ok(/al menos 3 puntos/.test(r.poco), 'sin puntos avisa: ' + r.poco);
+  // casos raros (arreglos de la auditoría de la v9)
+  const r2 = await p.evaluate(async () => {
+    const P = (x, y, z, nom) => ({ id: Math.random(), t: 'p', x, y, z, nom });
+    const rep = calcularTIN({ dibujos: [{ id: 1, objs: [P(1, 1, 10, '1'), P(1, 1, 7, '2'), P(5, 1, 9, '3'), P(1, 5, 9, '4'), P(5, 5, 9, '5'), P(5, 5, 9, '6')] }] }, { fuente: { tipo: 'todos' } });
+    const recta = calcularTIN({ dibujos: [{ id: 1, objs: [0, 1, 2, 3].map(i => P(i, 0, i, String(i))) }] }, { fuente: { tipo: 'todos' } });
+    const mucho = estacionesLinea([{ x: 0, y: 0 }, { x: 1000, y: 0 }], '0.01', 0), justo = estacionesLinea([{ x: 0, y: 0 }, { x: 1999, y: 0 }], '1', 0);
+    const ele = estacionesLinea([{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }], 5, 0).map(e => [e.s, +e.n.x.toFixed(4), +e.n.y.toFixed(4)].join(' '));
+    const sups = [{ id: 'a' }, { id: 'b' }];
+    const cf = [cfgSecc({ superficies: sups }), cfgSecc({ superficies: sups, secciones: { arriba: 'x', abajo: 'b' } }), cfgSecc({ superficies: sups, secciones: { arriba: 'b' } })].map(c => c.arriba + '/' + c.abajo + '/' + !!c.borrada);
+    // área de un perfil con cruce = la de sus polígonos dibujados
+    const pa = [[{ s: 0, z: 2 }, { s: 4, z: -2 }]], pb = [[{ s: 0, z: 0 }, { s: 4, z: 0 }]], ae = areaEntrePerfiles(pa, pb), rr = rellenosSeccion(pa, pb);
+    // un proyecto grande no va a localStorage (es compartido con TopoVías): solo a IndexedDB
+    const grande = { x: 'a'.repeat(LS_MAX + 10) }; escribirDato('minicivil_prueba', grande); await new Promise(ok => setTimeout(ok, 300));
+    const enLs = localStorage.getItem('minicivil_prueba'), solo = localStorage.getItem('minicivil_prueba__soloIdb'), enIdb = await TVDB.get('minicivil_prueba');
+    escribirDato('minicivil_prueba', { x: 'chico' }); await new Promise(ok => setTimeout(ok, 300));
+    const chico = localStorage.getItem('minicivil_prueba'), solo2 = localStorage.getItem('minicivil_prueba__soloIdb');
+    localStorage.removeItem('minicivil_prueba'); localStorage.removeItem('minicivil_prueba__t');
+    return { rep: rep.avisos.join(' '), repN: rep.pts.length, recta: recta.avisos.join(' '), mucho: mucho.length + ' ' + mucho.demasiadas, justo: justo.length + ' ' + !!justo.demasiadas, ele, cf,
+      ae: [ae.corte, ae.relleno, ae.ancho].join(' '), rrN: rr.corte.length + rr.relleno.length,
+      ls: [enLs === null, solo, enIdb && enIdb.x.length === LS_MAX + 10, chico === '{"x":"chico"}', solo2 === null].join(' ') };
+  });
+  ok(r2.repN === 4 && /1 punto queda en el mismo norte y este que otro con distinta cota/.test(r2.rep) && /P2 cota 7\.000 → queda P1 cota 10\.000/.test(r2.rep), 'dos puntos en el mismo sitio con otra cota: avisa cuál queda (el repetido con la misma cota no avisa): ' + r2.rep);
+  ok(/en línea recta/.test(r2.recta), 'puntos en línea recta: lo dice así: ' + r2.recta);
+  ok(r2.mucho === '0 100001' && r2.justo === '2000 false', 'más de 2000 secciones no se calculan (paso 0.01 en 1 km = 100001); 2000 sí: ' + r2.mucho + ' | ' + r2.justo);
+  ok(JSON.stringify(r2.ele) === JSON.stringify(['0 0 -1', '5 0 -1', '10 0.7071 -0.7071', '15 1 0', '20 1 0']), 'en el vértice de la línea la sección va a la mitad del ángulo: ' + r2.ele.join(' | '));
+  ok(r2.cf.join(',') === 'a/b/false,null/b/true,b/a/false', 'Volúmenes: sin elegir propone dos; si la elegida se borró queda vacía y avisa: ' + r2.cf.join(', '));
+  ok(r2.ae === '2 2 4' && r2.rrN === 2, 'el área de la sección sale de los mismos polígonos que se pintan (cruce: corte 2, relleno 2): ' + r2.ae);
+  ok(r2.ls === 'true 1 true true true', 'un proyecto de más de 500 KB se guarda solo en IndexedDB y no llena el localStorage de TopoVías; al achicarse vuelve: ' + r2.ls);
 
   // ── 2. en pantalla ──
   const objs = []; for (let i = 0; i <= 10; i++) for (let j = 0; j <= 10; j++) objs.push({ id: i * 100 + j, t: 'p', x: 1000000 + i * 2, y: 900000 + j * 2, nom: String(i * 11 + j + 1), z: 100 + 0.1 * i * 2 + 0.05 * j * 2, d: 'TN' });
@@ -150,12 +178,53 @@ const path = require('path');
   ok(pdf.startsWith('%PDF-') && paginas === 2 && /MiniCivil - Volumenes - Plataforma\.pdf/.test(dlP.suggestedFilename()), 'PDF de ' + paginas + ' páginas (datos y tabla + 5 secciones): ' + dlP.suggestedFilename());
   ok(pdf.includes('456.000') && pdf.includes('0+119') && pdf.includes('Informe de volúmenes'.replace('ú', '\\372')) || (pdf.includes('456.000') && pdf.includes('0+119')), 'el PDF trae el total 456.000 y las abscisas');
   await p.click('text=Cerrar').catch(() => {});
+  // leyenda del PDF con 4 superficies de nombre largo: ningún texto se sale de la hoja
+  const fuera = await p.evaluate(() => {
+    const Real = window.jspdf.jsPDF, malos = [];
+    window.jspdf = { ...window.jspdf, jsPDF: function(o) { const d = new Real(o), t = d.text.bind(d);
+      d.text = (txt, x, y, op) => { const al = op && op.align, w = Math.max(...[].concat(txt).map(l => d.getTextWidth(String(l))));
+        const x0 = al === 'right' ? x - w : al === 'center' ? x - w / 2 : x; if (x0 < 20 || x0 + w > 612 - 20 || y > 792 - 10) malos.push(String(txt).slice(0, 40)); return t(txt, x, y, op); }; return d; } };
+    try {
+      const pr = HIST.actual.proyectos[0], largo = n => 'Superficie de prueba con un nombre bastante largo número ' + n;
+      const sups = pr.superficies.map((s, i) => ({ ...s, nombre: largo(i + 1) })).concat([3, 4].map(n => ({ ...pr.superficies[0], id: 'x' + n, nombre: largo(n) })));
+      const pr2 = { ...pr, superficies: sups }, cfg = cfgSecc(pr2), R = seccionesDe(pr2, cfg);
+      crearInformePDF(pr2, R, R.vol, null, cfg);
+    } finally { window.jspdf = { ...window.jspdf, jsPDF: Real }; }
+    return malos;
+  });
+  ok(!fuera.length, 'informe con 4 superficies de nombre largo: ningún texto se sale de la hoja' + (fuera.length ? ': ' + fuera.join(' | ') : ''));
   const d3 = await p.evaluate(() => { vaciarGuardado(); return JSON.parse(localStorage.getItem('minicivil'))[0].secciones; });
   ok(d3 && d3.paso === '5' && d3.izq === '4' && d3.metodo === 'secciones' && d3.linea && d3.linea.objId === 'eje', 'la configuración de secciones y volumen queda guardada en el proyecto');
+  // paso demasiado chico y superficie borrada: Volúmenes lo dice (no se cuelga ni cambia de superficie)
+  const cambiar = f => p.evaluate(f => { HIST.crudo.proyectos(HIST.actual.proyectos.map(eval(f))); }, f.toString());
+  await cambiar(q => ({ ...q, secciones: { ...q.secciones, paso: '0.001' } })); await p.waitForTimeout(300);
+  ok(/saldrían 19\.001 secciones en 19\.000 m \(máximo 2\.000\)/.test(await p.textContent('.mc-vol-demasiadas')), 'paso 0.001 m: avisa que serían demasiadas secciones: ' + await p.textContent('.mc-vol-demasiadas'));
+  await cambiar(q => ({ ...q, secciones: { ...q.secciones, paso: '5' }, superficies: q.superficies.concat([{ id: 'otra', nombre: 'Otra', fuente: { tipo: 'todos' }, color: '#7C3AED' }]) })); await p.waitForTimeout(300);
+  // se borra la Subrasante (la de abajo) desde su tarjeta
+  await p.click('button[data-pestana=superficies]'); await p.waitForSelector('.mc-superficies');
+  await p.click('.mc-sup-tarjeta:has-text("Subrasante") button:has-text("Editar")'); await p.click('.mc-editor-sup button:has-text("Eliminar")'); await p.waitForTimeout(200);
+  await p.click('button[data-pestana=volumenes]'); await p.waitForSelector('.mc-volumenes'); await p.waitForTimeout(300);
+  ok(await p.$('.mc-vol-borrada') !== null && !(await p.$('.mc-tabla-vol')), 'si la superficie de abajo se borra, no toma otra sola: pide elegir de nuevo');
+  await p.selectOption('.mc-vol-abajo', 'otra'); await p.waitForTimeout(300);
+  ok(await p.$('.mc-vol-borrada') === null && await p.$('.mc-tabla-vol') !== null, 'al elegir de nuevo vuelve la tabla');
   // si se borra la línea de las secciones, Volúmenes lo dice
   await p.evaluate(() => { HIST.crudo.proyectos(HIST.actual.proyectos.map(q => ({ ...q, dibujos: q.dibujos.map(d => ({ ...d, objs: d.objs.filter(o => o.id !== 'eje') })) }))); }); await p.waitForTimeout(200);
   ok((await p.textContent('.mc-vol-sinlinea')).includes('ya no está en el dibujo'), 'sin la línea de las secciones, Volúmenes avisa');
   if (movil) ok(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'Volúmenes sin desplazamiento de lado en celular (la tabla se desliza dentro de su caja)');
+  // ── 4. editor: elegir una línea de quiebre y una figura de límite tocando ──
+  const o4 = objs.concat([{ id: 'q1', t: 'l', a: { x: 1000000, y: 900000 }, b: { x: 1000004, y: 900002 } },
+    { id: 'lim', t: 'pl', c: true, v: [{ x: 1000000, y: 900000 }, { x: 1000010, y: 900000 }, { x: 1000010, y: 900020 }, { x: 1000000, y: 900020 }] }]);
+  await p.evaluate(v => { HIST.crudo.proyectos([{ id: 1, nombre: 'Lote 4', creado: '', dibujos: [{ id: 2, nombre: 'Levantamiento', sig: 1, objs: v }] }]); }, o4); await p.waitForTimeout(200);
+  await p.click('button[data-pestana=superficies]'); await p.waitForSelector('.mc-superficies');
+  await p.click('button:has-text("Nueva superficie")'); await p.fill('.mc-sup-nombre', 'Con quiebre');
+  await p.check('.mc-quiebre'); await p.click('button[data-chip=lim-fig]'); await p.waitForTimeout(200);
+  ok((await p.textContent('.mc-sup-resumen')).includes('100 triángulos'), 'con la figura de límite (la mitad) el resumen baja a 100 triángulos: ' + await p.textContent('.mc-sup-resumen'));
+  await p.click('button:has-text("Guardar superficie")'); await p.waitForTimeout(300);
+  const q4 = await p.evaluate(() => { vaciarGuardado(); const pr = JSON.parse(localStorage.getItem('minicivil'))[0], s = pr.superficies[0], t = superficieTIN(pr, s);
+    const i = t.pts.findIndex(q => q.x === 1000000 && q.y === 900000), j = t.pts.findIndex(q => q.x === 1000004 && q.y === 900002); let lado = false;
+    for (let k = 0; k < t.tri.length; k += 3) { const t3 = [t.tri[k], t.tri[k + 1], t.tri[k + 2]]; if (t3.includes(i) && t3.includes(j)) lado = true; }
+    return { q: s.quiebres && s.quiebres.length === 1 && s.quiebres[0].objId === 'q1', lim: s.limite && s.limite.objId === 'lim', lado, n: t.n }; });
+  ok(q4.q && q4.lim && q4.lado && q4.n === 100, 'el quiebre y el límite elegidos en pantalla quedan guardados y la superficie respeta el quiebre: ' + JSON.stringify(q4));
   ok(!errs.length, 'sin errores en la consola' + (errs.length ? ': ' + errs.join(' | ') : ''));
   await b.close();
   console.log(fallas ? fallas + ' falla(s).' : 'Todo bien (' + (movil ? 'celular' : 'PC') + ').');

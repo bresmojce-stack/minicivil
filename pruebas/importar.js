@@ -18,7 +18,7 @@ const path = require('path'), fs = require('fs'), os = require('os');
   // ── 1. lectura (sin pantalla) ──
   const casos = await p.evaluate(() => {
     const L = (t, op, ex) => leerArchivoPuntos(t, op || {}, ex || [], 1);
-    const resumen = r => r.sep + '|' + r.encabezado + '|' + r.filas.map(f => [f.nom, f.N, f.E, f.z, f.d, f.estado].join(',')).join(';');
+    const resumen = r => r.sep + '|' + !!r.encabezado + '|' + r.filas.map(f => [f.nom, f.N, f.E, f.z, f.d, f.estado].join(',')).join(';');
     return {
       coma: resumen(L('Punto,Norte,Este,Cota,Descripcion\r\n1,1000.000,2000.000,1520.345,BM1\r\n2,1012.48,2003.15,1520.112,BORDE')),
       pyc: resumen(L('1;1000,5;2000,25;1520,345;TN\n2;1001,5;2001,25;1520,1;TN')),
@@ -26,6 +26,7 @@ const path = require('path'), fs = require('fs'), os = require('os');
       espacios: resumen(L('1   1000.500  2000.250 1520.345 BORDE IZQ\n2 1001 2001 1520 EJE')),
       espComa: resumen(L('1 1000,5 2000,25 1520,3 TN')),
       orden: resumen(L('1,2000.000,1000.000,1520.000,BM', { orden: 'EN' })),
+      dosTitulos: resumen(L('Levantamiento lote 4\nPunto,Norte,Este,Cota,Descripcion\n1,1000,2000,1500,TN')),
       bom: resumen(L('﻿7,1000,2000,1500,PI')),
       problemas: L('1,1000,2000,,TN\n2,1000,20a9,1500,TN\n3,1000,2000,15x,TN\n3,1001,2001,1501,TN\n,1002,2002,1502,TN\n4,1003\n5,9000000,2003,1503,TN\n6,1004,2004,1504,TN', {}, [{ nom: '6' }])
         .filas.map(f => f.linea + ':' + f.estado + ':' + (f.nom || '') + ':' + f.msg.join(' / ')),
@@ -39,6 +40,7 @@ const path = require('path'), fs = require('fs'), os = require('os');
   ok(casos.espacios === ' |false|1,1000.5,2000.25,1520.345,BORDE IZQ,ok;2,1001,2001,1520,EJE,ok', 'espacios (varios) y descripción con espacio: ' + casos.espacios);
   ok(casos.espComa === ' |false|1,1000.5,2000.25,1520.3,TN,ok', 'espacios con coma decimal: ' + casos.espComa);
   ok(casos.orden === ',|false|1,1000,2000,1520,BM,ok', 'orden Este, Norte: ' + casos.orden);
+  ok(casos.dosTitulos === ',|true|1,1000,2000,1500,TN,ok', 'dos líneas de título antes de los puntos: las dos se saltan: ' + casos.dosTitulos);
   ok(casos.bom === ',|false|7,1000,2000,1500,PI,ok', 'archivo con marca BOM al comienzo: ' + casos.bom);
   const pr = casos.problemas;
   ok(/^1:aviso:1:sin cota/.test(pr[0]), 'sin cota → aviso: ' + pr[0]);
