@@ -8,7 +8,7 @@ const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node22/lib/node_mod
   const p = await ctx.newPage();
   const errs = []; p.on('pageerror', e => errs.push(e.message)); p.on('console', m => { if (m.type() === 'error') errs.push('console ' + m.text().slice(0, 200)); });
   const dlg = []; p.on('dialog', d => { dlg.push(d.message().slice(0, 60)); d.accept(d.type() === 'prompt' ? d.defaultValue() : undefined); });
-  await p.goto('file://' + process.argv[2]); await p.waitForSelector('header.tv-header');
+  await p.goto('file://' + require('path').resolve(process.argv[2] || require('path').join(__dirname, '..', 'index.html'))); await p.waitForSelector('header.tv-header');
   const T = () => ({cotaInicio:"100",cotaFin:"",pendiente:"1",distancia:"50",id:1});
   const lat = {modo:"transversal",ancho:"3",modoT:"diferencia",diferencia:"0",pendienteT:"",tramos:[T()],absInicio:""};
   const pr = { id: 1, obraId: 5, nombre: "Via 1", absInicio: "0", tramos: [T()], intermedias: [], capas: [{nombre:"base",espesor:"0.15",id:1}], sobreancho:{izq:"",der:""}, lateralIzq: lat, lateralDer: lat, parqueaderos: [], bmEstaciones: [], coordsEje: [], coordsIzq: [], coordsDer: [], nivelaciones: [], volumenes: [] };

@@ -13,7 +13,7 @@ const path = require('path');
   let fallas = 0; const ok = (bien, txt) => { console.log((bien ? 'bien  ' : 'FALLA ') + txt); if (!bien) fallas++; };
   await p.goto('file://' + archivo); await p.waitForSelector('header.tv-header');
   await p.evaluate(() => { localStorage.clear(); indexedDB.deleteDatabase('minicivil'); }); await p.reload(); await p.waitForSelector('header.tv-header');
-  ok((await p.title()) === 'Mini Civil v1', 'título: ' + await p.title());
+  ok(/^Mini Civil v\d+$/.test(await p.title()), 'título: ' + await p.title());
   ok((await p.textContent('.tv-brand')).includes('Mini Civil'), 'encabezado dice Mini Civil');
   // proyecto nuevo
   await p.fill('form input', 'Lote prueba'); await p.click('form button[type=submit]'); await p.waitForTimeout(300);

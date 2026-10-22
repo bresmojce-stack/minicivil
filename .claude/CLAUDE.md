@@ -43,17 +43,15 @@ Ninguno cambia archivos, hace commit ni push. Lo que traen se revisa antes de af
 Las dos apps viven en `bresmojce-stack.github.io`, así que comparten el almacenamiento del navegador. Por eso todo
 lo de Mini Civil lleva otro nombre: localStorage `minicivil*` (`TV_KEY = 'minicivil'`), tema `minicivil_tema`,
 IndexedDB `minicivil`, canal de otra ventana `minicivil`, caché `minicivil-vN`. El `sw.js` de Mini Civil solo
-borra cachés `minicivil-*`. Ojo: el `sw.js` de TopoVías borra todas las cachés que no sean la suya cuando publica
-una versión; Mini Civil la vuelve a llenar en la siguiente apertura con internet (arreglo propuesto a Brian para
-TopoVías: filtrar `k.startsWith("topovias-")`). Los nombres de funciones y variables (`TV_KEY`, `TVDB`, `HIST`,
+borra cachés `minicivil-*`, y desde TopoVías v93 el de TopoVías solo borra las `topovias-*`. En Drive cada una tiene su propio ID de cliente y su carpeta ("TopoVías" / "Mini Civil"), así Google las trata como apps distintas. Los nombres de funciones y variables (`TV_KEY`, `TVDB`, `HIST`,
 clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar arreglos de una a otra.
 
 ## Al publicar (solo cuando Brian lo autorice)
 - Subir `TV_VERSION` en index.html, `CACHE_VERSION` en sw.js (ej. "2" y "minicivil-v2") y la versión del
-  `<title>` (hoy "Mini Civil v1").
+  `<title>` (hoy "Mini Civil v2").
 - `node pruebas/sintaxis.js` (sintaxis de cada `<script>` y versión igual en los dos archivos; corre también en
   GitHub en cada push a `main`, `.github/workflows/sintaxis.yml`).
-- `node pruebas/abrir.js` y `W=390 node pruebas/abrir.js` (PC y celular).
+- `node pruebas/abrir.js` y `W=390 node pruebas/abrir.js` (PC y celular); `node pruebas/nube.js` si se tocó Drive o los datos.
 - Commit con `git -c user.email=bresmojce@gmail.com -c user.name=bresmojce-stack commit`, push a `main`.
 
 ## Mapa del código (buscar por el comentario de sección `// ───`)
@@ -65,11 +63,13 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 | COPIAS AUTOMÁTICAS | `copiaAutomatica` (foto del día antes del primer cambio; guarda `{obras: [], vias: <proyectos>}` como en TopoVías), `leerCopiasAutomaticas` |
 | TEMAS | `TEMAS` (Claro y Oscuro con `listo: true`; los otros cuatro apagados), `hojaTemas`, `leerTema` (solo temas `listo`), `ponerTema` (localStorage `minicivil_tema`), `TV_VERSION`, `TV_KEY`, `TV_KEY_OBRAS` (reservado) |
 | OTRA VENTANA / DESHACER | `TV_CANAL`, `AvisoOtraVentana`; `HIST`, `histAntesDeCambio`, `deshacer`/`rehacer` (de los proyectos; el Dibujo tiene su propio deshacer) |
+| SINCRONIZAR CON GOOGLE DRIVE | Copiado de TopoVías v92 sin obras ni fotos: `nubeSincronizar` (un archivo "Proyecto - <nombre>.json" por proyecto, clave `proy:<id>` en appProperties, carpeta `NUBE_CARPETA` = "Mini Civil"), `nubeIniciar` (al abrir, al volver, 30 s después de cada cambio), `nubeDesconectar`, `BotonNube`/`PanelNube` (barra). `NUBE_CLIENTE` es el ID **propio** de Mini Civil (proyecto "Mini Civil" de Google Cloud, número 439434487259); nunca usar el de TopoVías (374164493256…), que es otra app. Conexión guardada en localStorage `minicivil_nube`. Prueba `pruebas/nube.js` (Drive simulado, dos equipos) |
 | INSTALAR | `BotonInstalarFinal`, `EstadoGuardado`, `BotonTema`, `SelectorTema` (solo los temas con `listo`), `VentanaArchivo` (guardar o compartir el DXF) |
 | DIBUJO (mini CAD de obra) | Igual que TopoVías v92: `DIB`, `EJE` (alineamiento con abscisas: polilínea → Elegir → "Usar como eje"), `crearDXF`, `DIB_GRUPOS`, `TabDibujo({ proy, onChange, onArchivo })`, `panelTablaPuntos`, `panelEscribir`, `panelListaPuntos`. Formato de objetos al comienzo de la sección. Se quitó: "→ Vía" (`panelPasarVia`, `detectarDibujoVia`), "Marcar parqueadero" (`marcarparq`) y "Eje de la vía" (`@eje`, `traerEje`) |
 | PROYECTOS (Mini Civil) | `proyectoNuevo` (`{ id, nombre, creado, dibujos }`), `useLocalProyectos` (guarda en `TV_KEY`, con deshacer), `copiaDeProyectos` (para `FalloApp`), `Logo`, `PantallaProyectos`, `App` (inicio = lista de proyectos; proyecto = su Dibujo), `FalloApp`, arranque y aviso de versión nueva |
 
 ## Estado y lo que sigue
+- Versión 2 (2026-10-22, Brian: "copia de seguridad en Drive pero para ella misma"): sincronización con Google Drive propia (ver la sección en el mapa). Su ID de cliente está en el proyecto "Mini Civil" de Google Cloud (cuenta bresmojce@gmail.com), aparte del de TopoVías. Prueba `nube.js`: sube, recibe, cambia, borra, usa su ID y su carpeta y no toca la carpeta de TopoVías. TopoVías v93 en el mismo día: su `sw.js` ya no borra la caché de Mini Civil.
 - Versión 1 (2026-10-22): etapa 0. Proyectos → dibujos con todo el CAD de TopoVías, temas Claro y Oscuro, guardado
   automático, copia del día, deshacer, modo sin conexión e instalación. Pruebas: `pruebas/abrir.js` (PC y
   celular) y `pruebas/dibujo.js` (el recorrido del Dibujo de TopoVías: da lo mismo que allá).
