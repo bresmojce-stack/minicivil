@@ -1,0 +1,17 @@
+{
+  "name": "Mini Civil",
+  "short_name": "Mini Civil",
+  "description": "CAD de obra con coordenadas reales: puntos, líneas, figuras, medidas, cotas y DXF.",
+  "lang": "es-CO",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#F1F5F9",
+  "theme_color": "#0F172A",
+  "icons": [
+    { "src": "icon-mc-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-mc-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-mc-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
