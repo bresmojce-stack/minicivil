@@ -61,6 +61,15 @@ const path = require('path');
   await p.evaluate(() => { localStorage.setItem('minicivil_tema', 'fuego'); }); await p.reload(); await p.waitForSelector('header.tv-header');
   ok(await p.evaluate(() => document.documentElement.getAttribute('data-tema')) !== 'fuego', 'un tema apagado guardado no se usa');
   ok((await p.textContent('.mc-proyecto')).includes('1 dibujo · 3 objetos'), 'la tarjeta del proyecto resume: ' + await p.textContent('.mc-proyecto'));
+  // Drive: botón de la barra grande y con texto (también en celular) y tarjeta en el inicio; los dos abren la ventana
+  const bn = await p.$eval('header button.tv-nube', e => ({ alto: Math.round(e.getBoundingClientRect().height), txt: e.innerText.trim() }));
+  ok(bn.alto >= 40 && bn.txt === 'Drive', 'botón de Drive en la barra: ' + bn.alto + ' px de alto, dice "' + bn.txt + '"');
+  await p.click('header button.tv-nube'); await p.waitForTimeout(150);
+  ok(!!(await p.$('.tv-panel-nube')), 'el botón de la barra abre la ventana de Drive');
+  await p.click('.tv-panel-nube button[aria-label=Cerrar]');
+  await p.click('button:has-text("Conectar con Google Drive")'); await p.waitForTimeout(150);
+  ok(!!(await p.$('.tv-panel-nube')), 'la tarjeta del inicio abre la ventana de Drive');
+  await p.click('.tv-panel-nube button[aria-label=Cerrar]');
   ok(!errs.length, 'sin errores en la consola' + (errs.length ? ': ' + errs.join(' | ') : ''));
   await b.close();
   console.log(fallas ? fallas + ' falla(s).' : 'Todo bien (' + (movil ? 'celular' : 'PC') + ').');
