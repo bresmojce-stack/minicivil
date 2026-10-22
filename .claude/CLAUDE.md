@@ -48,7 +48,7 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 
 ## Al publicar (solo cuando Brian lo autorice)
 - Subir `TV_VERSION` en index.html, `CACHE_VERSION` en sw.js (ej. "2" y "minicivil-v2") y la versión del
-  `<title>` (hoy "Mini Civil v12").
+  `<title>` (hoy "Mini Civil v13").
 - `node pruebas/sintaxis.js` (sintaxis de cada `<script>` y versión igual en los dos archivos; corre también en
   GitHub en cada push a `main`, `.github/workflows/sintaxis.yml`).
 - Batería completa: `node pruebas/correr.js` (16 pruebas en PC, celular y tablet, también sin conexión con servidor real; `SOLO=nombre` corre algunas). Rápidas: `node pruebas/abrir.js` y `W=390 node pruebas/abrir.js` (PC y celular); `node pruebas/importar.js` si se tocaron los puntos o el DXF; `node pruebas/nube.js` si se tocó Drive o los datos.
@@ -72,6 +72,7 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 | PROYECTOS (Mini Civil) | `proyectoNuevo` (`{ id, nombre, creado, dibujos }`), `useLocalProyectos` (guarda en `TV_KEY`, con deshacer), `copiaDeProyectos` (para `FalloApp`), `Logo`, `TarjetaNube`, `PantallaProyectos`, `App` (inicio = lista de proyectos; proyecto = pestañas `nav.tab`: Dibujo, Superficies…), `FalloApp`, arranque y aviso de versión nueva |
 
 ## Estado y lo que sigue
+- Versión 13 (2026-10-23, Brian: "el zoom se queda corto"): el Dibujo acerca hasta 50 px por milímetro (antes 5, límite en el pellizco y la rueda: `0.0005), 50000)`); dos puntos a 6 mm se ven separados y una línea de 2 km se sigue dibujando bien a 1 mm. Brian: casi repetido no es repetido y con otra cota es otro punto (no avisar al importar sin hablarlo).
 - Versión 12 (2026-10-23, Brian: "fijos en pantalla"): en el Dibujo los puntos y los textos ya no crecen ni se encogen mientras se acerca o aleja (antes se veían así hasta soltar, porque el gesto agranda la imagen ya pintada). Siguiente (boceto aprobado https://claude.ai/artifact/JNTwQqdoa1X2NoKX8tvyn6): superficie dentro del Dibujo, etapa 2D (ver y editar triángulos: quitar, voltear lado, unir dos puntos, devolver) y luego 3D en el mismo panel.
 - Versión 11 (2026-10-22, Brian aprobó el boceto y "empieza la primera etapa"): pestaña Presentación, etapa 1: hoja carta horizontal o vertical (los demás tamaños se ven como "pronto"), 5 plantillas de rótulo con datos del proyecto y logos, ventanas al dibujo a escala, secciones, tabla de volúmenes, varias hojas y PDF de todas. `Btn` acepta `className` y `aria-label`. Pendiente (etapas siguientes): más tamaños de hoja, cuadro de coordenadas, textos sueltos, girar la ventana, rótulo propio de Brian (plantilla 6).
 - Versión 10 (2026-10-22, Brian: "quiero arreglar todo" lo de la auditoría de la v9): proyecto grande solo en IndexedDB (no llena el localStorage de TopoVías); tope de 2000 secciones con aviso; aviso de puntos repetidos con otra cota y de puntos en línea recta; áreas de la sección desde los polígonos que se pintan; al borrar una superficie del volumen pide elegir de nuevo; leyenda del PDF en varias líneas; sección a la mitad del ángulo en un vértice; varias líneas de título al importar; la lectura del archivo se guarda (`LECTURA_IMP`); quitado `BloqueoCtx`. Pruebas nuevas en `superficies.js` (también elegir quiebre y límite en pantalla) e `importar.js`; las nuevas fallan con la v9 y pasan con la v10.
