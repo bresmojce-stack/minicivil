@@ -2,10 +2,10 @@
 
 **App en vivo:** https://bresmojce-stack.github.io/minicivil/ (se instala desde el navegador: Chrome → ⋮ → *Instalar app*; iPhone: Safari → Compartir → *Agregar a inicio*).
 
-Una app CAD con funciones 3D para volúmenes simples. Mini Civil 3D de obra: lo que de verdad se usa en campo, en PC, tablet, iPhone y Android. Hoy (versión 3) trae el
+Una app CAD con funciones 3D para volúmenes simples. Mini Civil 3D de obra: lo que de verdad se usa en campo, en PC, tablet, iPhone y Android. Hoy (versión 4) trae el
 CAD de TopoVías con coordenadas reales (Norte y Este): puntos, líneas, polilíneas, figuras, círculos, arcos,
 medidas, áreas, cotas, auto acotar, cuadro de coordenadas, tabla de puntos, ejes con abscisas y DXF para AutoCAD.
-Organizado por **proyectos**, cada uno con sus dibujos, con copia en **Google Drive** (botón de la nube arriba: carpeta "Mini Civil" en tu Drive, para tenerlo en todos tus equipos). Se irá ampliando por etapas (puntos de la estación,
+Importa los puntos de la estación (.csv o .txt con número, norte, este, cota y descripción), con un color por descripción y filtros por descripción, color y cota. Organizado por **proyectos**, cada uno con sus dibujos, con copia en **Google Drive** (botón de la nube arriba: carpeta "Mini Civil" en tu Drive, para tenerlo en todos tus equipos). Se irá ampliando por etapas (puntos de la estación,
 superficies, curvas de nivel, perfiles, secciones, volúmenes, 3D).
 
 ## Archivos

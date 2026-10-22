@@ -4,6 +4,7 @@
     node pruebas/abrir.js                        # PC: abre, crea proyecto y dibujo, dibuja, DXF, temas Claro y Oscuro, recarga
     W=390 node pruebas/abrir.js                  # lo mismo en celular (y que no haya desplazamiento de lado)
     node pruebas/dibujo.js index.html <salida>   # recorrido completo del Dibujo copiado de TopoVías (W=390 celular)
+    node pruebas/importar.js                     # importar puntos: 17 casos de archivos, recorrido, filtros, deshacer y DXF (W=390 celular)
     node pruebas/nube.js                         # Google Drive simulado con dos equipos (subir, recibir, cambiar, borrar, aparte de TopoVías)
 
 Usan Playwright con el Chromium de la máquina (`PLAYWRIGHT=/ruta/a/playwright` si está en otro lugar).
