@@ -48,10 +48,10 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 
 ## Al publicar (solo cuando Brian lo autorice)
 - Subir `TV_VERSION` en index.html, `CACHE_VERSION` en sw.js (ej. "2" y "minicivil-v2") y la versión del
-  `<title>` (hoy "Mini Civil v8").
+  `<title>` (hoy "Mini Civil v9").
 - `node pruebas/sintaxis.js` (sintaxis de cada `<script>` y versión igual en los dos archivos; corre también en
   GitHub en cada push a `main`, `.github/workflows/sintaxis.yml`).
-- `node pruebas/abrir.js` y `W=390 node pruebas/abrir.js` (PC y celular); `node pruebas/importar.js` si se tocaron los puntos o el DXF; `node pruebas/nube.js` si se tocó Drive o los datos.
+- Batería completa: `node pruebas/correr.js` (13 pruebas en PC, celular y tablet, también sin conexión con servidor real; `SOLO=nombre` corre algunas). Rápidas: `node pruebas/abrir.js` y `W=390 node pruebas/abrir.js` (PC y celular); `node pruebas/importar.js` si se tocaron los puntos o el DXF; `node pruebas/nube.js` si se tocó Drive o los datos.
 - Commit con `git -c user.email=bresmojce@gmail.com -c user.name=bresmojce-stack commit`, push a `main`.
 
 ## Mapa del código (buscar por el comentario de sección `// ───`)
@@ -71,6 +71,7 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 | PROYECTOS (Mini Civil) | `proyectoNuevo` (`{ id, nombre, creado, dibujos }`), `useLocalProyectos` (guarda en `TV_KEY`, con deshacer), `copiaDeProyectos` (para `FalloApp`), `Logo`, `TarjetaNube`, `PantallaProyectos`, `App` (inicio = lista de proyectos; proyecto = pestañas `nav.tab`: Dibujo, Superficies…), `FalloApp`, arranque y aviso de versión nueva |
 
 ## Estado y lo que sigue
+- Versión 9 (2026-10-22): batería completa (`correr.js`, `sinconexion.js`) y arreglo: Volúmenes avisa si la línea de las secciones se borró del dibujo. Probado además con 7.000 puntos (TIN 29 ms, 38 secciones 81 ms, mallas 43 ms, cada pestaña abre en menos de 0.2 s en el celular) y en tema oscuro.
 - Versión 8 (2026-10-22): "Informe PDF" en Volúmenes (jsPDF incrustado). Revisado por páginas con pdftoppm: nada se sale de su casilla.
 - Versión 7 (2026-10-22): pestañas Secciones (sobre una línea, eje o polilínea del dibujo; cada 5/10/20/otro m; ancho a cada lado; la abscisa del eje si la línea es un eje) y Volúmenes (por secciones con la tabla que cuadra con las secciones, y por mallas como principal o para comparar). Pestañas del proyecto con ícono arriba para que quepan las cuatro en el celular.
 - Versión 6 (2026-10-22): vista 3D de las superficies visibles ("Ver en 3D" en Superficies). Las líneas de quiebre ya iban en la v5 (probadas: el tramo queda como lado de triángulo; vértice sin punto toma la cota de la superficie).

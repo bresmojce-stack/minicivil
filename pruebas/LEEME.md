@@ -1,5 +1,8 @@
 # Pruebas de Mini Civil
 
+    node pruebas/correr.js                       # TODAS, en PC, celular y tablet; dice cuáles fallaron (SOLO=superficies,nube para algunas)
+    node pruebas/sinconexion.js                  # con servidor de verdad: caché propia, abre sin internet, no toca la caché de TopoVías
+
     node pruebas/sintaxis.js                     # sintaxis de cada <script> y versión igual en index.html y sw.js (también en GitHub)
     node pruebas/abrir.js                        # PC: abre, crea proyecto y dibujo, dibuja, DXF, temas Claro y Oscuro, recarga
     W=390 node pruebas/abrir.js                  # lo mismo en celular (y que no haya desplazamiento de lado)

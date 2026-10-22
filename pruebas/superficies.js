@@ -152,6 +152,9 @@ const path = require('path');
   await p.click('text=Cerrar').catch(() => {});
   const d3 = await p.evaluate(() => { vaciarGuardado(); return JSON.parse(localStorage.getItem('minicivil'))[0].secciones; });
   ok(d3 && d3.paso === '5' && d3.izq === '4' && d3.metodo === 'secciones' && d3.linea && d3.linea.objId === 'eje', 'la configuración de secciones y volumen queda guardada en el proyecto');
+  // si se borra la línea de las secciones, Volúmenes lo dice
+  await p.evaluate(() => { HIST.crudo.proyectos(HIST.actual.proyectos.map(q => ({ ...q, dibujos: q.dibujos.map(d => ({ ...d, objs: d.objs.filter(o => o.id !== 'eje') })) }))); }); await p.waitForTimeout(200);
+  ok((await p.textContent('.mc-vol-sinlinea')).includes('ya no está en el dibujo'), 'sin la línea de las secciones, Volúmenes avisa');
   if (movil) ok(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'Volúmenes sin desplazamiento de lado en celular (la tabla se desliza dentro de su caja)');
   ok(!errs.length, 'sin errores en la consola' + (errs.length ? ': ' + errs.join(' | ') : ''));
   await b.close();
