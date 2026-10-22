@@ -8,6 +8,7 @@ const P = [
   ['dibujo PC', 'dibujo.js', {}, [index, path.join(salida, 'dib')]], ['dibujo celular', 'dibujo.js', { W: '390' }, [index, path.join(salida, 'dibcel')]],
   ['importar PC', 'importar.js', {}, []], ['importar celular', 'importar.js', { W: '390' }, []],
   ['superficies PC', 'superficies.js', {}, []], ['superficies celular', 'superficies.js', { W: '390' }, []], ['superficies tablet', 'superficies.js', { W: '820' }, []],
+  ['presentación PC', 'presentacion.js', {}, []], ['presentación celular', 'presentacion.js', { W: '390' }, []],
   ['nube', 'nube.js', {}, []], ['sin conexión', 'sinconexion.js', {}, []]
 ];
 const solo = (process.env.SOLO || '').split(',').filter(Boolean);
