@@ -87,6 +87,23 @@ const path = require('path');
   if (movil) ok(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'sin desplazamiento de lado en celular');
   // zoom con los botones
   await p.click('.mc-planta button[aria-label=Acercar]'); await p.click('.mc-planta button[aria-label="Ver todo"]');
+  // vista 3D: abre, pinta algo distinto del fondo, se gira y se cierra
+  await p.click('button:has-text("Ver en 3D")'); await p.waitForSelector('.mc-3d'); await p.waitForTimeout(500);
+  const lienzo = await p.$('.mc-3d-lienzo');
+  if (!lienzo) ok((await p.textContent('.mc-3d')).includes('WebGL'), 'sin WebGL en este navegador: avisa');
+  else {
+    const pinta = () => p.evaluate(() => { const c = document.querySelector('.mc-3d-lienzo'), x = document.createElement('canvas'); x.width = c.width; x.height = c.height; const g = x.getContext('2d'); g.drawImage(c, 0, 0);
+      const d = g.getImageData(0, 0, x.width, x.height).data; let n = 0; for (let i = 0; i < d.length; i += 16) if (Math.abs(d[i] - 30) + Math.abs(d[i + 1] - 37) + Math.abs(d[i + 2] - 48) > 30) n++; return n; });
+    const n1 = await pinta();
+    ok(n1 > 100, 'la vista 3D dibuja la superficie (' + n1 + ' muestras con color)');
+    const bb = await lienzo.boundingBox();
+    await p.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2); await p.mouse.down(); await p.mouse.move(bb.x + bb.width / 2 + 120, bb.y + bb.height / 2 + 40, { steps: 5 }); await p.mouse.up();
+    await p.fill('.mc-3d-exag', '8');
+    const n2 = await pinta();
+    ok(n2 > 100 && n2 !== n1, 'girar y exagerar cambian la imagen (' + n1 + ' → ' + n2 + ')');
+  }
+  await p.click('.mc-3d button:has-text("Volver")'); await p.waitForTimeout(150);
+  ok(!(await p.$('.mc-3d')), 'la vista 3D se cierra');
   // al recargar sigue en la pestaña de superficies
   await p.reload(); await p.waitForSelector('.mc-superficies'); await p.waitForTimeout(200);
   ok(await p.$('.mc-sup-planta') !== null, 'al recargar sigue en Superficies con la superficie');
