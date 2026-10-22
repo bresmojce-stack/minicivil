@@ -109,6 +109,40 @@ const path = require('path');
   ok(await p.$('.mc-sup-planta') !== null, 'al recargar sigue en Superficies con la superficie');
   await p.click('button[data-pestana=dibujo]'); await p.waitForSelector('.tv-dib-svg');
   ok(true, 'vuelve al Dibujo con la pestaña');
+  // ── 3. secciones y volúmenes en pantalla: TN = 100 + 0.1·x, SR = 98, eje de 20 m a lo largo de x ──
+  const o3 = []; let id3 = 1;
+  for (let i = 0; i <= 10; i++) for (let j = 0; j <= 10; j++) { o3.push({ id: id3++, t: 'p', x: 1000000 + i * 2, y: 900000 + j * 2, nom: '', z: 100 + 0.1 * i * 2, d: 'TN' }); o3.push({ id: id3++, t: 'p', x: 1000000 + i * 2 + 0.3, y: 900000 + j * 2 + 0.3, nom: '', z: 98, d: 'SR' }); }
+  o3.push({ id: 'eje', t: 'eje', v: [{ x: 1000000.5, y: 900010 }, { x: 1000019.5, y: 900010 }], abs0: 100, paso: 10, nom: 'Eje' });
+  const proy3 = [{ id: 1, nombre: 'Plataforma', creado: '', dibujos: [{ id: 2, nombre: 'Lev', sig: 1, objs: o3 }],
+    superficies: [{ id: 'tn', nombre: 'Terreno natural', fuente: { tipo: 'desc', descs: ['TN'] }, color: '#16A34A', textura: 'puntos', curvas: '' }, { id: 'sr', nombre: 'Subrasante', fuente: { tipo: 'desc', descs: ['SR'] }, color: '#64748B', textura: 'cuadros', curvas: '' }] }];
+  await p.evaluate(v => { localStorage.clear(); localStorage.setItem('minicivil', JSON.stringify(v)); localStorage.setItem('minicivil__t', String(Date.now() + 99999)); localStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'secciones' })); }, proy3);
+  await p.reload(); await p.waitForSelector('.mc-secciones'); await p.waitForTimeout(200);
+  await p.selectOption('.mc-secc-linea', { index: 1 }); await p.waitForTimeout(200);
+  await p.click('.mc-secciones button:has-text("5 m")'); await p.fill('.mc-secc-izq', '4'); await p.fill('.mc-secc-der', '4'); await p.waitForTimeout(300);
+  ok((await p.textContent('.mc-secc-abs')) === '0+100', 'la primera sección lleva la abscisa del eje (abs0 = 100): ' + await p.textContent('.mc-secc-abs'));
+  const filasS = await p.$$eval('.mc-tabla-secc tbody tr', r => r.map(x => x.innerText.replace(/\s+/g, ' ').trim()));
+  ok(filasS.length === 5 && filasS[0] === '0+100 16.400 0.000 8.000' && filasS[4] === '0+119 31.600 0.000 8.000', 'secciones cada 5 m más el final (0+119), área = 8 × espesor (el eje empieza en x = 0.5: 2.05 × 8 = 16.4): ' + filasS.join(' | '));
+  ok(await p.$('.mc-sec-corte') !== null && (await p.$$('.mc-sec-perfil')).length === 2, 'la sección dibuja el corte rayado y los dos perfiles');
+  ok((await p.textContent('.mc-secc-corte')).includes('16.400 m²'), 'área de corte de la sección mostrada: ' + await p.textContent('.mc-secc-corte'));
+  await p.click('.mc-secciones button:has-text("›")'); await p.waitForTimeout(100);
+  ok((await p.textContent('.mc-secc-abs')) === '0+105', 'siguiente sección: ' + await p.textContent('.mc-secc-abs'));
+  await p.click('button[data-pestana=volumenes]'); await p.waitForSelector('.mc-volumenes'); await p.waitForTimeout(300);
+  const filasV = await p.$$eval('.mc-tabla-vol tbody tr', r => r.map(x => x.innerText.replace(/\s+/g, ' ').trim()));
+  // (16.4+20.4)/2×5 = 92.000; (20.4+24.4)/2×5 = 112.000; (24.4+28.4)/2×5 = 132.000; último tramo de 4 m: (28.4+31.6)/2×4 = 120.000 → total 456.000
+  ok(filasV[1] === '0+105 20.400 0.000 5.000 92.000 0.000' && filasV[4] === '0+119 31.600 0.000 4.000 120.000 0.000', 'tabla de volúmenes (cuentas a mano): ' + filasV[1] + ' | ' + filasV[4]);
+  ok(filasV[5] === 'TOTAL 19.000 456.000 0.000' && (await p.textContent('.mc-vol-corte')).includes('456.000'), 'total por secciones 456.000 m³ = suma de las filas: ' + filasV[5]);
+  const cmp = await p.textContent('.mc-vol-comparar');
+  ok(/corte 45[0-9]\.\d{3} m³/.test(cmp) && /diferencia [+-]?\d\.\d %/.test(cmp), 'por mallas en la franja, para comparar (8 × 19 × 3 = 456 + los cuadros del borde): ' + cmp.split('Si la')[0]);
+  await p.click('button[data-metodo=mallas]'); await p.waitForTimeout(400);
+  ok((await p.textContent('.mc-volumenes')).includes('Por mallas (cuadros de 0.250 m'), 'método por mallas como principal');
+  await p.click('button:has-text("toda la zona común")'); await p.waitForTimeout(600);
+  const todo = await p.textContent('.mc-vol-corte');
+  ok(/1[01]\d\d\.\d{3}/.test(todo), 'por mallas en toda la zona común (~19.7 × 19.7 × 3): ' + todo);
+  await p.click('button[data-metodo=secciones]'); await p.click('button:has-text("la franja de las secciones")');
+  await p.click('button:has-text("Copiar tabla")'); await p.waitForTimeout(200);
+  const d3 = await p.evaluate(() => { vaciarGuardado(); return JSON.parse(localStorage.getItem('minicivil'))[0].secciones; });
+  ok(d3 && d3.paso === '5' && d3.izq === '4' && d3.metodo === 'secciones' && d3.linea && d3.linea.objId === 'eje', 'la configuración de secciones y volumen queda guardada en el proyecto');
+  if (movil) ok(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'Volúmenes sin desplazamiento de lado en celular (la tabla se desliza dentro de su caja)');
   ok(!errs.length, 'sin errores en la consola' + (errs.length ? ': ' + errs.join(' | ') : ''));
   await b.close();
   console.log(fallas ? fallas + ' falla(s).' : 'Todo bien (' + (movil ? 'celular' : 'PC') + ').');
