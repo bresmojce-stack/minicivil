@@ -140,6 +140,16 @@ const path = require('path');
   ok(/1[01]\d\d\.\d{3}/.test(todo), 'por mallas en toda la zona común (~19.7 × 19.7 × 3): ' + todo);
   await p.click('button[data-metodo=secciones]'); await p.click('button:has-text("la franja de las secciones")');
   await p.click('button:has-text("Copiar tabla")'); await p.waitForTimeout(200);
+  // informe PDF: se arma, se puede bajar y trae la tabla y las secciones
+  await p.click('button:has-text("Informe PDF")'); await p.waitForTimeout(800);
+  ok((await p.textContent('body')).includes('Informe PDF listo'), 'el informe PDF queda listo para guardar o compartir');
+  const [dlP] = await Promise.all([p.waitForEvent('download'), p.click('text=💾 Guardar en el dispositivo')]);
+  const rutaPdf = path.join(require('os').tmpdir(), 'mc_informe_prueba.pdf'); await dlP.saveAs(rutaPdf);
+  const pdf = require('fs').readFileSync(rutaPdf, 'latin1');
+  const paginas = (pdf.match(/\/Type \/Page[^s]/g) || []).length;
+  ok(pdf.startsWith('%PDF-') && paginas === 2 && /MiniCivil - Volumenes - Plataforma\.pdf/.test(dlP.suggestedFilename()), 'PDF de ' + paginas + ' páginas (datos y tabla + 5 secciones): ' + dlP.suggestedFilename());
+  ok(pdf.includes('456.000') && pdf.includes('0+119') && pdf.includes('Informe de volúmenes'.replace('ú', '\\372')) || (pdf.includes('456.000') && pdf.includes('0+119')), 'el PDF trae el total 456.000 y las abscisas');
+  await p.click('text=Cerrar').catch(() => {});
   const d3 = await p.evaluate(() => { vaciarGuardado(); return JSON.parse(localStorage.getItem('minicivil'))[0].secciones; });
   ok(d3 && d3.paso === '5' && d3.izq === '4' && d3.metodo === 'secciones' && d3.linea && d3.linea.objId === 'eje', 'la configuración de secciones y volumen queda guardada en el proyecto');
   if (movil) ok(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'Volúmenes sin desplazamiento de lado en celular (la tabla se desliza dentro de su caja)');
