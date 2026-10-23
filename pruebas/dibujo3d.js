@@ -30,8 +30,20 @@ const path = require('path');
     const n = await p.evaluate(() => { const c = document.querySelector('.mc-3d-dibujo .mc-3d-lienzo'), x = document.createElement('canvas'); x.width = c.width; x.height = c.height; const g = x.getContext('2d'); g.drawImage(c, 0, 0);
       const d = g.getImageData(0, 0, x.width, x.height).data; let k = 0; for (let i = 0; i < d.length; i += 16) if (Math.abs(d[i] - 30) + Math.abs(d[i + 1] - 37) + Math.abs(d[i + 2] - 48) > 30) k++; return k; });
     ok(escena === 1 && n > 100, 'la escena 3D dibuja la superficie, los puntos y el muro (' + n + ' muestras con color)');
-    // tocar el centro: marca un triángulo
-    await p.mouse.click(c3.x + c3.width / 2, c3.y + c3.height / 2); await p.waitForTimeout(300);
+    // tocar el terreno en un sitio libre (lejos de los puntos y de las líneas del dibujo): marca un triángulo
+    const sitioLibre = async () => p.evaluate(() => {
+      const cv = document.querySelector('.mc-3d-dibujo .mc-3d-lienzo'), r = cv.getBoundingClientRect();
+      const objs = JSON.parse(localStorage.getItem('minicivil'))[0].dibujos[0].objs;
+      const pxs = objs.filter(o => o.t === 'p' && o.z != null).map(o => MC_3D.aP(o)).filter(s => s.z > -1 && s.z < 1);
+      let mejor = null, lejos = -1;
+      for (let X = r.left + 30; X < r.right - 30; X += 14) for (let Y = r.top + 30; Y < r.bottom - 30; Y += 14) {
+        const q = MC_3D.dondeCae(X, Y); if (!q || q.en !== 'terreno') continue;
+        let d = 1e9; pxs.forEach(s => { d = Math.min(d, Math.hypot(s.X - X, s.Y - Y)); });
+        if (d > lejos) { lejos = d; mejor = { X, Y, d }; }
+      }
+      return mejor; });
+    const libre = await sitioLibre();
+    await p.mouse.click(libre ? libre.X : c3.x + c3.width / 2, libre ? libre.Y : c3.y + c3.height / 2); await p.waitForTimeout(300);
     const sel = await p.$('.mc-3d-sel');
     ok(!!sel, 'tocar la superficie en 3D marca un triángulo y ofrece quitarlo');
     if (sel) {
@@ -125,6 +137,46 @@ const path = require('path');
     await p.fill('.mc-3d-editor .mc-sup-nombre', 'NO GUARDAR');
     await p.click('.mc-3d-editor button:has-text("Cancelar")'); await p.waitForTimeout(500);
     ok(!(await p.$('.mc-3d-editor')) && (await datos()).superficies[0].nombre === 'Terreno natural', 'Cancelar no cambia nada');
+  }
+  // ── v25: dibujar líneas y polilíneas dentro del 3D, y borrar lo que quedó mal ──
+  if (!(await p.$('.mc-3d-dibujo'))) { await p.click('.mc-modo button[data-modo="3D"]'); await p.waitForSelector('.mc-3d-dibujo'); await p.waitForTimeout(800); }
+  if (await p.$('.mc-3d-dib[data-dib="polilinea"]')) {
+    const nObjs = () => p.evaluate(() => { vaciarGuardado(); return JSON.parse(localStorage.getItem('minicivil'))[0].dibujos[0].objs.length; });
+    const ultimo = () => p.evaluate(() => { const o = JSON.parse(localStorage.getItem('minicivil'))[0].dibujos[0].objs; return o[o.length - 1]; });
+    const enPantalla3 = q => p.evaluate(c => MC_3D.aP(c), q);
+    const tocar3 = async q => { const s = await enPantalla3(q); await p.mouse.click(s.X, s.Y); await p.waitForTimeout(350); };
+    const n0 = await nObjs();
+    // polilínea de tres vértices pegados a tres puntos del levantamiento
+    await p.click('.mc-3d-dib[data-dib="polilinea"]'); await p.waitForTimeout(350);
+    ok(await p.getAttribute('.mc-3d-dib[data-dib="polilinea"]', 'aria-pressed') === 'true' && await p.$('.mc-3d-dibpanel') !== null,
+      'el botón "✎ Polilínea" entra en modo dibujar dentro del 3D');
+    // tres puntos de verdad del levantamiento (con su cota): así el imán se pega a ellos
+    const tres = await p.evaluate(() => { const o = JSON.parse(localStorage.getItem('minicivil'))[0].dibujos[0].objs.filter(q => q.t === 'p' && q.z != null);
+      return [o[8], o[24], o[40]].map(q => ({ x: q.x, y: q.y, z: q.z, nom: q.nom })); });
+    for (const q of tres) await tocar3(q);
+    const panel = (await p.textContent('.mc-3d-dibpanel')).replace(/\s+/g, ' ');
+    ok(/3 vértices/.test(panel) && /cota/.test(panel), 'los tres toques ponen tres vértices con su cota (' + panel.slice(0, 48) + ')');
+    await p.click('.mc-3d-terminar'); await p.waitForTimeout(1200);
+    const pl = await ultimo();
+    const pegada = pl && pl.t === 'pl' && pl.v.length === 3 && pl.v.every(q => q.z != null) &&
+      Math.abs(pl.v[0].x - tres[0].x) < 0.05 && Math.abs(pl.v[0].y - tres[0].y) < 0.05 && Math.abs(pl.v[0].z - tres[0].z) < 0.01;
+    ok(await nObjs() === n0 + 1 && pegada, 'al Terminar, la polilínea queda en el dibujo con sus cotas: ' + JSON.stringify(pl && pl.v && pl.v[0]));
+    ok(!(await p.$('.mc-3d-dibpanel')) || !(await p.textContent('.mc-3d-dibpanel')).includes('vértices'), 'después de terminar, se vacía lo que estaba dibujando y queda listo para la siguiente');
+    await p.click('.mc-3d-salirdib'); await p.waitForTimeout(300);   // salir del modo dibujar para poder elegir
+    // la misma polilínea se puede tocar en el 3D y borrar
+    if (!(await p.$('.mc-3d-dibujo'))) { await p.click('.mc-modo button[data-modo="3D"]'); await p.waitForSelector('.mc-3d-dibujo'); await p.waitForTimeout(900); }
+    const medio = { x: (tres[0].x + tres[1].x) / 2, y: (tres[0].y + tres[1].y) / 2, z: (pl.v[0].z + pl.v[1].z) / 2 };
+    const s2 = await enPantalla3(medio); await p.mouse.click(s2.X, s2.Y); await p.waitForTimeout(500);
+    const haySel = await p.$('.mc-3d-selobj');
+    ok(!!haySel, 'tocando una línea del dibujo en 3D, se marca y ofrece borrarla');
+    if (haySel) { await p.click('.mc-3d-borrar'); await p.waitForTimeout(900);
+      ok(await nObjs() === n0, 'Borrar la saca del dibujo (' + n0 + ' objetos otra vez)'); }
+    // una línea: dos toques y queda sola, sin Terminar
+    if (!(await p.$('.mc-3d-dibujo'))) { await p.click('.mc-modo button[data-modo="3D"]'); await p.waitForSelector('.mc-3d-dibujo'); await p.waitForTimeout(900); }
+    await p.click('.mc-3d-dib[data-dib="linea"]'); await p.waitForTimeout(350);
+    await tocar3(tres[0]); await tocar3(tres[2]); await p.waitForTimeout(900);
+    const ln = await ultimo();
+    ok(await nObjs() === n0 + 1 && ln.t === 'l' && ln.a.z != null && ln.b.z != null, 'con "✎ Línea", dos toques dejan la línea hecha, con cota en los dos extremos');
   }
   if (await p.$('.mc-3d-dibujo')) await p.click('.mc-3d-dibujo button:has-text("‹ 2D")');
   await p.waitForTimeout(200);
