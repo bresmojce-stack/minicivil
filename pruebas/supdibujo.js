@@ -38,7 +38,7 @@ const path = require('path');
   // ── 2. en pantalla ──
   const objs = []; for (let i = 0; i <= 6; i++) for (let j = 0; j <= 6; j++) objs.push({ id: 100 + i * 10 + j, t: 'p', x: 1000000 + i * 10, y: 900000 + j * 10, z: 100 + i, nom: String(i * 7 + j + 1), d: 'TN' });
   objs.push({ id: 'muro', t: 'pl', v: [{ x: 1000005, y: 900035 }, { x: 1000055, y: 900035 }] });
-  const proyecto = [{ id: 1, nombre: 'Lote', creado: '', dibujos: [{ id: 2, nombre: 'Lev', sig: 60, objs }], superficies: [{ id: 'tn', nombre: 'Terreno', fuente: { tipo: 'desc', descs: ['TN'] }, color: '#16A34A', curvas: '' }] }];
+  const proyecto = [{ id: 1, nombre: 'Lote', creado: '', dibujos: [{ id: 2, nombre: 'Lev', sig: 60, objs }], superficies: [{ id: 111, nombre: 'Terreno', fuente: { tipo: 'desc', descs: ['TN'] }, color: '#16A34A', curvas: '' }] }];
   await p.evaluate(v => { localStorage.clear(); localStorage.setItem('minicivil', JSON.stringify(v)); localStorage.setItem('minicivil__t', String(Date.now() + 99999)); localStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'dibujo' })); }, proyecto);
   await p.reload(); await p.waitForSelector('.tv-dib-svg'); await p.waitForTimeout(400);
   const datos = () => p.evaluate(() => { vaciarGuardado(); return JSON.parse(localStorage.getItem('minicivil'))[0]; });
@@ -91,6 +91,16 @@ const path = require('path');
   ok(Math.abs(z - 150) < 1e-6, 'la superficie pasa por el muro a 150: ' + z);
   const dxf = await p.evaluate(() => crearDXF(HIST.actual.proyectos[0].dibujos[0]));
   ok(/POLYLINE\r\n(?:[^\r]*\r\n)*?70\r\n8\r\n/.test(dxf) && dxf.includes('\r\n30\r\n150\r\n'), 'en el DXF el muro sale como polilínea 3D a su cota');
+  // con dos superficies: la lista de la barra debe cambiar de verdad la que se edita (antes seguía en la primera)
+  await p.evaluate(() => HIST.crudo.proyectos(HIST.actual.proyectos.map(q => ({ ...q,
+    superficies: q.superficies.concat([{ id: 222, nombre: 'Rasante', fuente: { tipo: 'desc', descs: ['TN'] }, color: '#2563EB', curvas: '' }]) }))));
+  await p.waitForTimeout(400); await herr('supquitar');
+  await p.selectOption('.mc-dib-sup-elegir', '222'); await p.waitForTimeout(400);
+  ok(await p.inputValue('.mc-dib-sup-elegir') === '222' && /Rasante/.test(await p.textContent('.tv-dib-cmd')), 'al elegir otra superficie, la barra pasa a esa');
+  await tocar(13, 3);
+  d = await datos();
+  const porNom = n => (d.superficies.find(s2 => s2.nombre === n).quitados || []).length;
+  ok(porNom('Rasante') === 1 && porNom('Terreno') === 0, 'el triángulo se quita de la superficie elegida, no de la primera (Rasante ' + porNom('Rasante') + ', Terreno ' + porNom('Terreno') + ')');
   if (movil) ok(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'sin desplazamiento de lado en celular');
   ok(!errs.length, 'sin errores en la consola' + (errs.length ? ': ' + errs.join(' | ') : ''));
   await b.close();

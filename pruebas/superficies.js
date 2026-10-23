@@ -142,7 +142,7 @@ const path = require('path');
   for (let i = 0; i <= 10; i++) for (let j = 0; j <= 10; j++) { o3.push({ id: id3++, t: 'p', x: 1000000 + i * 2, y: 900000 + j * 2, nom: '', z: 100 + 0.1 * i * 2, d: 'TN' }); o3.push({ id: id3++, t: 'p', x: 1000000 + i * 2 + 0.3, y: 900000 + j * 2 + 0.3, nom: '', z: 98, d: 'SR' }); }
   o3.push({ id: 'eje', t: 'eje', v: [{ x: 1000000.5, y: 900010 }, { x: 1000019.5, y: 900010 }], abs0: 100, paso: 10, nom: 'Eje' });
   const proy3 = [{ id: 1, nombre: 'Plataforma', creado: '', dibujos: [{ id: 2, nombre: 'Lev', sig: 1, objs: o3 }],
-    superficies: [{ id: 'tn', nombre: 'Terreno natural', fuente: { tipo: 'desc', descs: ['TN'] }, color: '#16A34A', textura: 'puntos', curvas: '' }, { id: 'sr', nombre: 'Subrasante', fuente: { tipo: 'desc', descs: ['SR'] }, color: '#64748B', textura: 'cuadros', curvas: '' }] }];
+    superficies: [{ id: 111, nombre: 'Terreno natural', fuente: { tipo: 'desc', descs: ['TN'] }, color: '#16A34A', textura: 'puntos', curvas: '' }, { id: 222, nombre: 'Subrasante', fuente: { tipo: 'desc', descs: ['SR'] }, color: '#64748B', textura: 'cuadros', curvas: '' }] }];
   await p.evaluate(v => { localStorage.clear(); localStorage.setItem('minicivil', JSON.stringify(v)); localStorage.setItem('minicivil__t', String(Date.now() + 99999)); localStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'secciones' })); }, proy3);
   await p.reload(); await p.waitForSelector('.mc-secciones'); await p.waitForTimeout(200);
   await p.selectOption('.mc-secc-linea', { index: 1 }); await p.waitForTimeout(200);
@@ -199,13 +199,13 @@ const path = require('path');
   const cambiar = f => p.evaluate(f => { HIST.crudo.proyectos(HIST.actual.proyectos.map(eval(f))); }, f.toString());
   await cambiar(q => ({ ...q, secciones: { ...q.secciones, paso: '0.001' } })); await p.waitForTimeout(300);
   ok(/saldrían 19\.001 secciones en 19\.000 m \(máximo 2\.000\)/.test(await p.textContent('.mc-vol-demasiadas')), 'paso 0.001 m: avisa que serían demasiadas secciones: ' + await p.textContent('.mc-vol-demasiadas'));
-  await cambiar(q => ({ ...q, secciones: { ...q.secciones, paso: '5' }, superficies: q.superficies.concat([{ id: 'otra', nombre: 'Otra', fuente: { tipo: 'todos' }, color: '#7C3AED' }]) })); await p.waitForTimeout(300);
+  await cambiar(q => ({ ...q, secciones: { ...q.secciones, paso: '5' }, superficies: q.superficies.concat([{ id: 333, nombre: 'Otra', fuente: { tipo: 'todos' }, color: '#7C3AED' }]) })); await p.waitForTimeout(300);
   // se borra la Subrasante (la de abajo) desde su tarjeta
   await p.click('button[data-pestana=superficies]'); await p.waitForSelector('.mc-superficies');
   await p.click('.mc-sup-tarjeta:has-text("Subrasante") button:has-text("Editar")'); await p.click('.mc-editor-sup button:has-text("Eliminar")'); await p.waitForTimeout(200);
   await p.click('button[data-pestana=volumenes]'); await p.waitForSelector('.mc-volumenes'); await p.waitForTimeout(300);
   ok(await p.$('.mc-vol-borrada') !== null && !(await p.$('.mc-tabla-vol')), 'si la superficie de abajo se borra, no toma otra sola: pide elegir de nuevo');
-  await p.selectOption('.mc-vol-abajo', 'otra'); await p.waitForTimeout(300);
+  await p.selectOption('.mc-vol-abajo', '333'); await p.waitForTimeout(300);
   ok(await p.$('.mc-vol-borrada') === null && await p.$('.mc-tabla-vol') !== null, 'al elegir de nuevo vuelve la tabla');
   // si se borra la línea de las secciones, Volúmenes lo dice
   await p.evaluate(() => { HIST.crudo.proyectos(HIST.actual.proyectos.map(q => ({ ...q, dibujos: q.dibujos.map(d => ({ ...d, objs: d.objs.filter(o => o.id !== 'eje') })) }))); }); await p.waitForTimeout(200);
