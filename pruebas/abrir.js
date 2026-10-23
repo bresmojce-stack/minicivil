@@ -44,7 +44,8 @@ const path = require('path');
   const L = objs.find(o => o.t === 'l');
   ok(objs.filter(o => o.t === 'p').length === 2 && L && L.a.x === 1000 && L.b.y === 1030, 'dos puntos y la línea pegada a ellos: ' + JSON.stringify(L && [L.a, L.b]));
   // DXF
-  await p.click('button:has-text("DXF")'); await p.waitForTimeout(200);
+  await p.click('.mc-mas'); await p.waitForTimeout(250);   // v26: DXF está en el menú "⋯"
+  await p.click('.mc-mas-dxf'); await p.waitForTimeout(200);
   ok((await p.textContent('body')).includes('DXF listo para AutoCAD'), 'la ventana del DXF abre');
   await p.keyboard.press('Escape'); const cerrar = await p.$('button:has-text("Cerrar")'); if (cerrar) await cerrar.click();
   // solo Claro y Oscuro: el botón de la barra va de uno al otro
@@ -58,7 +59,7 @@ const path = require('path');
   d = await datos();
   ok(d.length === 1 && d[0].nombre === 'Lote prueba' && d[0].dibujos[0].objs.length === 3, 'al recargar sigue el proyecto con sus 3 objetos');
   ok(await p.evaluate(() => localStorage.getItem('topovias_standalone') === null), 'no toca los datos de TopoVías');
-  await p.click('button:has-text("Proyectos")'); await p.waitForTimeout(150);
+  await p.click('.mc-volver');  await p.waitForTimeout(150);   // v26: el botón de volver es la flecha ‹ de la barra del dibujo
   ok(JSON.stringify(await p.$$eval('[data-tema-btn]', bs => bs.map(x => x.dataset.temaBtn))) === '["claro","oscuro"]', 'el inicio ofrece solo Claro y Oscuro');
   await p.evaluate(() => { localStorage.setItem('minicivil_tema', 'fuego'); }); await p.reload(); await p.waitForSelector('header.tv-header');
   ok(await p.evaluate(() => document.documentElement.getAttribute('data-tema')) !== 'fuego', 'un tema apagado guardado no se usa');

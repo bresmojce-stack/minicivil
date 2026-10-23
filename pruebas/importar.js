@@ -58,7 +58,8 @@ const path = require('path'), fs = require('fs'), os = require('os');
   const dibujo = [{ id: 1, nombre: 'Lote 4', creado: '', dibujos: [{ id: 2, nombre: 'Levantamiento', sig: 2, objs: [{ id: 3, t: 'p', x: 1990, y: 990, nom: 'P1' }] }] }];
   await p.evaluate(v => { localStorage.clear(); localStorage.setItem('minicivil', JSON.stringify(v)); localStorage.setItem('minicivil__t', String(Date.now() + 99999)); localStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1 })); indexedDB.deleteDatabase('minicivil'); }, dibujo);
   await p.reload(); await p.waitForSelector('.tv-dib-svg'); await p.waitForTimeout(300);
-  await p.click('button:has-text("Importar puntos")'); await p.waitForTimeout(150);
+  await p.click('.mc-mas'); await p.waitForTimeout(250);   // v26: "Importar puntos" está en el menú "⋯"
+  await p.click('.mc-mas-importar'); await p.waitForTimeout(150);
   const txt = await p.textContent('.tv-dib-importar');
   ok(/5 datos, en este orden/.test(txt) && /Número/.test(txt) && /Norte/.test(txt) && /Cota/.test(txt) && /Descripción/.test(txt) && /No tienes que elegirlo/.test(txt) && /\.csv/.test(txt) && /\.txt/.test(txt), 'el panel explica el archivo: 5 datos, .csv/.txt, separadores');
   if (movil) ok(await p.evaluate(() => { const e = document.querySelector('.tv-dib-importar'); return e.scrollWidth <= e.clientWidth + 1 && document.documentElement.scrollWidth <= innerWidth + 1; }), 'sin desplazamiento de lado en celular');
@@ -89,7 +90,8 @@ const path = require('path'), fs = require('fs'), os = require('os');
   ds = await datos();
   ok(ds[0].objs.length === 1, 'un solo Deshacer quita todos los puntos importados: quedan ' + ds[0].objs.length);
   // otra vez, ahora con Este, Norte invertido para ver que cambia, y de vuelta al normal
-  await p.click('button:has-text("Importar puntos")');
+  await p.click('.mc-mas'); await p.waitForTimeout(250);
+  await p.click('.mc-mas-importar');
   const [fc2] = await Promise.all([p.waitForEvent('filechooser'), p.click('.tv-imp-elegir')]);
   await fc2.setFiles(ruta); await p.waitForSelector('.tv-imp-resumen');
   await p.click('button[data-orden=EN]'); await p.waitForTimeout(100);

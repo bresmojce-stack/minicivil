@@ -22,10 +22,10 @@ const path = require('path');
 
   // ── la barra de arriba: dentro del proyecto no está, y sus botones pasaron a la fila del proyecto ──
   const barra = await p.evaluate(() => ({ header: !!document.querySelector('header.tv-header'),
-    enFila: document.querySelectorAll('.mc-barra-proy .tv-acciones button, .mc-barra-proy .tv-acciones .tv-guardado').length,
+    enFila: document.querySelectorAll('.mc-barra-dib .tv-acciones button, .mc-barra-dib .tv-acciones .tv-guardado').length,
     y: Math.round(document.querySelector('.tv-dib-svg').getBoundingClientRect().top) }));
-  ok(!barra.header && barra.enFila >= 2, 'dentro del proyecto no hay barra de arriba y sus botones están en la fila del proyecto (' + barra.enFila + ')');
-  await p.evaluate(() => { document.querySelector('.mc-barra-proy button').click(); }); await p.waitForTimeout(300);
+  ok(!barra.header && barra.enFila >= 2, 'dentro del Dibujo no hay barra de arriba y sus botones están en la fila del dibujo (' + barra.enFila + ')');
+  await p.evaluate(() => { document.querySelector('.mc-volver').click(); }); await p.waitForTimeout(300);
   ok(!!(await p.$('header.tv-header')) && !!(await p.$('.tv-brand')), 'en la pantalla de inicio la barra con el logo sigue estando');
   await p.evaluate(v => { localStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'dibujo' })); }, 0);
   await p.reload(); await p.waitForSelector('.tv-dib-svg'); await p.waitForTimeout(400);
@@ -34,9 +34,34 @@ const path = require('path');
     const d = JSON.parse(localStorage.getItem('minicivil'))[0].dibujos[0];
     return { n: d.objs.length, ultimo: d.objs[d.objs.length - 1], cmd: document.querySelector('.tv-dib-cmd').textContent.replace(/\s+/g, ' ').slice(0, 30) }; });
   const enPantalla = q => p.evaluate(c => { const r = document.querySelector('.tv-dib-svg').getBoundingClientRect(), s = MC_DIB.aP(c); return { x: r.left + s.X, y: r.top + s.Y }; }, q);
+  // v26: la cinta de comando flota arriba del lienzo; si un punto queda debajo, se corre la vista para poder tocarlo
+  const bajoCinta = q => p.evaluate(c => { const cm = document.querySelector('.tv-dib-cmd'); if (!cm) return false;
+    const r = cm.getBoundingClientRect(); return c.x > r.left - 8 && c.x < r.right + 8 && c.y > r.top - 8 && c.y < r.bottom + 8; }, q);
   const tocar = async q => { const s = await enPantalla(q); await p.mouse.click(s.x, s.y); await p.waitForTimeout(220); };
   const herr = async (g, id) => { await p.click(`.tv-dib-nav button[data-grupo=${g}]`); await p.click(`.tv-dib-hoja button[data-herr="${id}"]`); await p.waitForTimeout(150); };
   await p.click('.tv-dib-nav button[data-grupo=ver]'); await p.click('.tv-dib-hoja button[data-herr="@todo"]'); await p.waitForTimeout(400);
+
+  // ── v26: el espacio ganado y que la cinta flotante NO se robe los toques del dibujo ──
+  const caja0 = await (await p.$('.tv-dib-svg')).boundingBox();
+  const m26 = await p.evaluate(() => {
+    const cmd = document.querySelector('.tv-dib-cmd'), svg = document.querySelector('.tv-dib-svg');
+    const rc = cmd.getBoundingClientRect(), rs = svg.getBoundingClientRect();
+    // cuánto del lienzo tapa la cinta, y qué hay bajo el dedo en los cuatro puntos cardinales del lienzo
+    const prueba = [[0.5, 0.5], [0.5, 0.9], [0.1, 0.6], [0.9, 0.5]].map(([a, b]) => {
+      const el = document.elementFromPoint(rs.left + rs.width * a, rs.top + rs.height * b);
+      return el ? el.tagName : 'nada'; });
+    return { tapa: Math.round(rc.width * rc.height / (rs.width * rs.height) * 100), prueba, flota: getComputedStyle(cmd).position };
+  });
+  ok(m26.flota === 'absolute' && m26.tapa < 18, 'la cinta de comando flota sobre el dibujo y tapa poco (' + m26.tapa + ' % del lienzo)');
+  ok(m26.prueba.every(t => t === 'svg'), 'en el centro y los bordes del lienzo, el dedo llega al dibujo y no a la cinta (' + m26.prueba.join(', ') + ')');
+  ok(caja0.height > 560, 'el lienzo gana alto con la barra fundida y la cinta flotando (' + Math.round(caja0.height) + ' px)');
+  // el menú "⋯" guarda lo que antes ocupaba una fila entera, y todo sigue estando
+  await p.click('.mc-mas'); await p.waitForTimeout(300);
+  const enMas = await p.evaluate(() => [...document.querySelectorAll('.tv-dib-mas button')].map(b => b.textContent.replace(/\s+/g, ' ').trim()));
+  ok(['Nuevo', '✎ Renombrar', 'Duplicar', 'Borrar', 'Importar puntos', 'Tabla de puntos', 'DXF'].every(t => enMas.some(x => x.includes(t))),
+    'el menú ⋯ tiene nuevo, renombrar, duplicar, borrar, importar, tabla y DXF (' + enMas.length + ' botones)');
+  await p.click('.tv-dib-mas button:has-text("Cerrar")'); await p.waitForTimeout(250);
+  ok(!(await p.$('.tv-dib-mas')), 'el menú ⋯ se cierra');
 
   // ── apagado: la línea queda plana (como siempre) ──
   const apagado = await p.getAttribute('.mc-dib3d', 'aria-pressed');
@@ -75,9 +100,9 @@ const path = require('path');
 
   // ── la cota también se toma de una línea que ya la tiene (su extremo) ──
   await herr('dibujar', 'linea');
-  await tocar(objs[8]); await tocar(objs[5]);
+  await tocar(objs[0]); await tocar(objs[3]);   // objs[0] es extremo de la línea de antes; los dos quedan abajo, lejos de la cinta
   const a5 = await estado();
-  ok(Math.abs(a5.ultimo.a.z - z8) < 1e-9, 'pegándose al extremo de una línea que ya tiene cota, también la toma');
+  ok(Math.abs(a5.ultimo.a.z - z0) < 1e-9, 'pegándose al extremo de una línea que ya tiene cota, también la toma');
 
   // ── el punto suelto y las figuras siguen planos ──
   await herr('dibujar', 'rect');

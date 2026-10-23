@@ -41,12 +41,16 @@ const path = require('path');
   ok(a1.n === a0.n && /primer punto/.test(a1.cmd), 'arrastrar un dedo con Línea no dibuja (' + a1.n + ' objetos, "' + a1.cmd.trim() + '")');
   // puntos que estén a la vista y lejos de los botones flotantes (abajo a la derecha) y de la barra de escala
   // los puntos se pintan en la imagen de fondo: su sitio lo da MC_DIB.aP (cuadrícula de 5 x 5 cada 10 m desde 1000000/900000)
-  const tocables = () => p.evaluate(c => { const r = document.querySelector('.tv-dib-svg').getBoundingClientRect(), l = [];
+  const tocables = () => p.evaluate(c => {
+    const cm = document.querySelector('.tv-dib-cmd'), rc = cm && cm.getBoundingClientRect();
+    const enCinta = (x, y) => !!rc && x > rc.left - 8 && x < rc.right + 8 && y > rc.top - 8 && y < rc.bottom + 8;
+    const r = document.querySelector('.tv-dib-svg').getBoundingClientRect(), l = [];
     for (let i = 0; i < 25; i++) { const s = MC_DIB.aP({ x: 1000000 + (i % 5) * 10, y: 900000 + Math.floor(i / 5) * 10 });
       l.push({ nom: String(i + 1), x: r.left + s.X, y: r.top + s.Y }); }
     return l.filter(q => q.x > c.x + 20 && q.x < c.x + c.width - 20 && q.y > c.y + 20 && q.y < c.y + c.height - 20
       && !(q.x > c.x + c.width - 190 && q.y > c.y + c.height - 170)     // botones flotantes y Deshacer
-      && !(q.x < c.x + 230 && q.y > c.y + c.height - 60)); }, caja);    // barra de escala
+      && !(q.x < c.x + 230 && q.y > c.y + c.height - 60)                // barra de escala
+      && !enCinta(q.x, q.y)); }, caja);                                 // v26: la cinta de comando flota arriba
   let libres = await tocables();
   ok(Math.hypot(libres0.x - (await unPunto()).x, libres0.y - (await unPunto()).y) > 40, 'el dibujo se corrió con el dedo');
   if (libres.length < 2) {   // en pantallas angostas el arrastre puede dejarlos casi afuera: se encuadra todo
@@ -90,7 +94,8 @@ const path = require('path');
     for (let i = 0; i < 25; i++) { const s = MC_DIB.aP({ x: 1000000 + (i % 5) * 10, y: 900000 + Math.floor(i / 5) * 10 }); qs.push({ x: r.left + s.X, y: r.top + s.Y }); }
     const xs = qs.map(q => q.x), ys = qs.map(q => q.y); return { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) }; });
   const cj = await (await p.$('.tv-dib-svg')).boundingBox();   // el recuadro tiene que empezar y acabar DENTRO del lienzo
-  const ax = Math.max(cj.x + 6, zona.x0 - 12), ay = Math.max(cj.y + 6, zona.y0 - 12);
+  const cinta = await p.evaluate(() => { const c = document.querySelector('.tv-dib-cmd'); if (!c) return 0; const r = c.getBoundingClientRect(); return r.bottom + 8; });
+  const ax = Math.max(cj.x + 6, zona.x0 - 12), ay = Math.max(cj.y + 6, cinta, zona.y0 - 12);
   const bx = Math.min(cj.x + cj.width - 6, zona.x1 + 12), by = Math.min(cj.y + cj.height - 6, zona.y1 + 12);
   await arrastrar(ax, ay, bx - ax, by - ay);
   const sel = await p.evaluate(() => document.querySelector('.tv-dib-cmd').textContent.replace(/\s+/g, ' '));

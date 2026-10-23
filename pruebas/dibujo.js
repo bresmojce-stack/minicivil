@@ -112,11 +112,13 @@ const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node22/lib/node_mod
   await herr('medir', 'area'); await p.waitForTimeout(50); await mapa(); await tap(...S(1012, 1006)); await p.waitForTimeout(150);
   await p.screenshot({ path: process.argv[3] + '_todo.png' });
   // 13. DXF
-  const [dl] = await Promise.all([p.waitForEvent('download'), p.click('button:has-text("DXF")').then(() => p.click('text=💾 Guardar en el dispositivo'))]);
+  await p.click('.mc-mas'); await p.waitForTimeout(250);   // v26: DXF y "Nuevo" están en el menú "⋯"
+  const [dl] = await Promise.all([p.waitForEvent('download'), p.click('.mc-mas-dxf').then(() => p.click('text=💾 Guardar en el dispositivo'))]);
   await dl.saveAs(process.argv[3] + '.dxf'); console.log('13. DXF:', dl.suggestedFilename());
   await p.click('text=Cerrar').catch(() => {});
   // 14. segundo dibujo
-  await p.click('.tv-dibujo button:has-text("Nuevo")'); await p.waitForTimeout(200);
+  await p.click('.mc-mas'); await p.waitForTimeout(250);
+  await p.click('.mc-mas-nuevo'); await p.waitForTimeout(200);
   console.log('14. dibujos:', JSON.stringify((await guardado()).map(d => d.nombre + ':' + d.objs.length)));
   console.log('    diálogos:', JSON.stringify(dlg));
   console.log(errs.join('\n') || 'no errors'); await b.close();
