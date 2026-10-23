@@ -66,6 +66,22 @@ const path = require('path');
   const cerca = await pintado(p);
   ok(lejos.txt / lejos.pts < 0.3 && cerca.txt / cerca.pts > 1.5, 'de lejos los puntos juntos van sin texto y al acercar lo llevan: ' +
     lejos.txt + '/' + lejos.pts + ' → ' + cerca.txt + '/' + cerca.pts + ' (textos/puntos)');
+  // v21: de lejos, sin textos, las marcas de los puntos SE VEN de verdad en la pantalla (antes eran un trazo de largo cero con
+  // punta redonda: el Chrome del computador lo pintaba, el navegador del celular de Brian no, y la pantalla quedaba vacía)
+  const rojos = async pg => {
+    const bz = await (await pg.$('.tv-dib-svg')).boundingBox();
+    const png = await pg.screenshot({ clip: { x: bz.x, y: bz.y, width: bz.width, height: bz.height } });
+    return pg.evaluate(async b64 => {
+      const img = new Image(); img.src = 'data:image/png;base64,' + b64; await img.decode();
+      const c = document.createElement('canvas'); c.width = img.width; c.height = img.height; const x = c.getContext('2d'); x.drawImage(img, 0, 0);
+      const d = x.getImageData(0, 0, c.width, c.height).data; let n = 0;
+      for (let i = 0; i < d.length; i += 4) if (d[i] > 150 && d[i + 1] < 110 && d[i + 2] < 110) n++;   // rojo del punto (#DC2626)
+      return n;
+    }, png.toString('base64'));
+  };
+  await p.click('.tv-dib-nav button[data-grupo=ver]'); await p.click('.tv-dib-hoja button[data-herr="@todo"]'); await p.waitForTimeout(600);   // todos a la vista: de lejos, sin textos
+  const nLejos = await pintado(p), pxLejos = await rojos(p);
+  ok(nLejos.txt / nLejos.pts < 0.3 && pxLejos > 2000, 'de lejos, sin textos, las marcas de los puntos se ven en la pantalla (' + pxLejos + ' píxeles de marca, ' + nLejos.txt + '/' + nLejos.pts + ' textos/puntos)');
   // 1200 puntos: todos en la imagen y el svg casi vacío (antes eran miles de piezas sueltas)
   const nube = []; for (let i = 0; i < 1200; i++) { const a = rnd() * 6.28, r = Math.sqrt(rnd()) * 40; nube.push({ id: i + 1, t: 'p', x: 1000060 + r * Math.cos(a), y: 1000060 + r * Math.sin(a), z: 1500, nom: String(i + 1), col: '#0891B2' }); }
   await p.evaluate(v => { HIST.crudo.proyectos([{ id: 1, nombre: 'Z', creado: '', dibujos: [{ id: 5, nombre: 'Nube', sig: 1201, objs: v }] }]); }, nube); await p.waitForTimeout(600);
@@ -79,6 +95,10 @@ const path = require('path');
   await p.mouse.click(uno.x, uno.y); await p.waitForTimeout(400);
   const panelSel = await p.$('.tv-dib-panel');
   ok(!!panelSel && /PUNTO/i.test(await panelSel.innerText()), 'un punto de la nube se puede tocar y elegir');
+  // v21: la marca del punto elegido es un círculo de verdad, no una raya de largo cero (esa no se pinta en algunos navegadores)
+  const marca = await p.evaluate(() => { const e = document.querySelector('.tv-dib-capa .tv-pt'); if (!e) return 'no hay marca';
+    return e.tagName.toLowerCase() === 'circle' ? 'circle' : e.tagName.toLowerCase() + (e.getAttribute('x1') === e.getAttribute('x2') ? ' de largo cero' : ''); });
+  ok(marca === 'circle', 'la marca del punto elegido es un círculo relleno (' + marca + ')');
   await p.close();
 
   // ── tablet con los dedos ──
