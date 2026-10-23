@@ -45,6 +45,40 @@ const path = require('path');
       else ok(false, 'un segundo toque también marca un triángulo');
     }
   }
+  // ── v23: los textos de los puntos en 3D (cota y descripción), cada uno con su casilla ──
+  if (!(await p.$('.mc-3d-dibujo'))) { await p.click('.mc-modo button[data-modo="3D"]'); await p.waitForSelector('.mc-3d-dibujo'); await p.waitForTimeout(800); }
+  if (await p.$('.mc-3d-dibujo .mc-3d-lienzo')) {
+    const cuantos = () => p.evaluate(() => (window.MC_3D || {}).etq || 0);
+    // píxeles del canvas de textos: todos, y los de la descripción (que va en el color del punto, rojizo)
+    const pintados = async (soloRojos) => {
+      const c = await p.$('.mc-3d-textos'); if (!c) return 0;
+      return p.evaluate(rojos => { const cv = document.querySelector('.mc-3d-textos'), x = document.createElement('canvas');
+        x.width = cv.width; x.height = cv.height; const g = x.getContext('2d'); g.drawImage(cv, 0, 0);
+        const d = g.getImageData(0, 0, x.width, x.height).data; let n = 0;
+        for (let i = 0; i < d.length; i += 4) { if (d[i + 3] <= 40) continue;
+          if (!rojos || (d[i] > 150 && d[i + 1] < 190 && d[i + 2] < 190)) n++; }
+        return n; }, !!soloRojos);
+    };
+    ok(await cuantos() === 0 && await pintados() === 0, 'al empezar, los puntos en 3D van sin textos (la vista va más suelta)');
+    await p.click('.mc-3d label:has-text("Cota") input'); await p.waitForTimeout(400);
+    const conCota = await cuantos(), pxCota = await pintados();
+    ok(conCota > 0 && pxCota > 200, 'con la casilla Cota, los puntos muestran su cota (' + conCota + ' puntos con texto)');
+    const rojosCota = await pintados(true);
+    await p.click('.mc-3d label:has-text("Descripción") input'); await p.waitForTimeout(400);
+    ok(await pintados(true) > rojosCota + 50, 'con Descripción también sale el TN, en el color del punto');
+    await p.click('.mc-3d label:has-text("Cota") input'); await p.waitForTimeout(400);
+    const soloD = await pintados();
+    ok(soloD > 0 && await pintados(true) > 0 && soloD < pxCota, 'se puede dejar solo la descripción, sin la cota (' + soloD + ' px)');
+    await p.click('.mc-3d label:has-text("Descripción") input'); await p.waitForTimeout(400);
+    const fin2 = { n: await cuantos(), px: await pintados(), z: await p.isChecked('.mc-3d label:has-text("Cota") input'), d: await p.isChecked('.mc-3d label:has-text("Descripción") input') };
+    ok(fin2.n === 0 && fin2.px === 0, 'apagando las dos casillas, el 3D vuelve a quedar sin textos (' + JSON.stringify(fin2) + ')');
+    // se acuerda al volver a entrar
+    await p.click('.mc-3d label:has-text("Cota") input'); await p.waitForTimeout(300);
+    await p.click('.mc-3d-dibujo button:has-text("‹ 2D")'); await p.waitForTimeout(300);
+    await p.click('.mc-modo button[data-modo="3D"]'); await p.waitForSelector('.mc-3d-dibujo'); await p.waitForTimeout(700);
+    ok(await p.isChecked('.mc-3d label:has-text("Cota") input') && await cuantos() > 0, 'al volver a entrar al 3D se acuerda de las casillas');
+    await p.click('.mc-3d label:has-text("Cota") input'); await p.waitForTimeout(300);
+  }
   if (await p.$('.mc-3d-dibujo')) await p.click('.mc-3d-dibujo button:has-text("‹ 2D")');
   await p.waitForTimeout(200);
   ok(!(await p.$('.mc-3d-dibujo')) && await p.$('.tv-dib-svg') !== null, 'se vuelve al 2D');
