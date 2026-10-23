@@ -48,10 +48,10 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 
 ## Al publicar (solo cuando Brian lo autorice)
 - Subir `TV_VERSION` en index.html, `CACHE_VERSION` en sw.js (ej. "2" y "minicivil-v2") y la versión del
-  `<title>` (hoy "Mini Civil v32").
+  `<title>` (hoy "Mini Civil v33").
 - `node pruebas/sintaxis.js` (sintaxis de cada `<script>` y versión igual en los dos archivos; corre también en
   GitHub en cada push a `main`, `.github/workflows/sintaxis.yml`).
-- Batería completa: `node pruebas/correr.js` (34 pruebas en PC, celular y tablet, también sin conexión con servidor real; `SOLO=nombre` corre algunas). Rápidas: `node pruebas/abrir.js` y `W=390 node pruebas/abrir.js` (PC y celular); `node pruebas/importar.js` si se tocaron los puntos o el DXF; `node pruebas/nube.js` si se tocó Drive o los datos.
+- Batería completa: `node pruebas/correr.js` (36 pruebas en PC, celular y tablet, también sin conexión con servidor real; `SOLO=nombre` corre algunas). Rápidas: `node pruebas/abrir.js` y `W=390 node pruebas/abrir.js` (PC y celular); `node pruebas/importar.js` si se tocaron los puntos o el DXF; `node pruebas/nube.js` si se tocó Drive o los datos.
 - Commit con `git -c user.email=bresmojce@gmail.com -c user.name=bresmojce-stack commit`, push a `main`.
 
 ## Mapa del código (buscar por el comentario de sección `// ───`)
@@ -73,6 +73,23 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 | PROYECTOS (Mini Civil) | **Espacio en el celular (v26)**: en la pestaña Dibujo no se dibuja `mc-barra-proy`; el botón de volver (`mc-volver`, solo la flecha) y `tv-acciones` (tema, Drive, guardado) van dentro de la fila del dibujo (`mc-barra-dib`), que `App` le pasa a `TabDibujo` en el prop `cabecera`. En las otras pestañas la fila sigue igual. En el Dibujo, nuevo/renombrar/duplicar/borrar/importar/tabla/DXF se fueron al menú `⋯` (`mc-mas`, panel `tv-dib-mas`, botones `mc-mas-*`), y la franja de comando `tv-dib-cmd` flota sobre el lienzo (`position: absolute`, ancho al contenido, `pointer-events: none` salvo en sus botones por la regla del `<style>`; se parte en varias líneas si hay muchos botones). El lienzo pasa de 479 a 601 px en el celular (del 57 % al 71 % de la pantalla). `proyectoNuevo` (`{ id, nombre, creado, dibujos }`), `useLocalProyectos` (guarda en `TV_KEY`, con deshacer), `copiaDeProyectos` (para `FalloApp`), `Logo`, `TarjetaNube`, `PantallaProyectos`, `App` (inicio = lista de proyectos; proyecto = pestañas `nav.tab`: Dibujo, Superficies…; desde la v22, dentro de un proyecto NO se dibuja la barra `tv-header`: el tema, Drive y el estado de guardado van en la fila del proyecto `mc-barra-proy`, y `tv-main` lleva `mc-sin-barra` para el margen de la franja de estado del celular. En el inicio la barra con el logo sigue), `FalloApp`, arranque y aviso de versión nueva |
 
 ## Estado y lo que sigue
+- Versión 33 (2026-10-23, el hallazgo 4 de la auditoría): **trazos juntos**. Las líneas, polilíneas, círculos, arcos y trazos
+  a mano alzada que comparten estilo se dibujan ahora en **un solo camino del svg** en vez de un elemento por objeto. El
+  arreglo de la v19 solo había pasado los **puntos** al canvas; con la v31 un plano importado trae miles de **líneas**, y un
+  elemento del svg por objeto hacía que el navegador se arrastrara al mover (medido en pantalla de celular: 3000 polilíneas =
+  3026 elementos y **28 ms por cuadro**). Ahora: **27 elementos y 14,5 ms**, lo mismo que con el dibujo vacío (14,2 ms); con
+  10 000 polilíneas, 38 ms. Cómo: `dDeObj(o)` da el camino (atributo `d`) de un objeto de solo trazo — el mismo que ya usaba la
+  polilínea con curvas, sacado a un ayudante — y en el armado de la capa se acumula en un `Map` por clave
+  `color|grosor|guion`; al final, un `h("path", { className: "tv-dib-juntos" })` por clave. `JUNTABLES = ["l","pl","ci","ar","fh"]`.
+  **No se juntan** (siguen siendo su propio elemento, con el mismo aspecto de antes): lo elegido o señalado, lo que tiene
+  relleno o rayado (`rellenoDe(o) !== "none"`, para que no se mezclen los rellenos ni salgan huecos donde dos figuras se
+  montan), los puntos (que van en el canvas), los textos, las cotas, el cuadro de coordenadas, el eje y las piezas pegadas.
+  Lo único que cambia de aspecto: los trazos juntos se pintan **después** de las figuras con relleno, así que una línea queda
+  encima de un relleno (antes dependía del orden del dibujo); el relleno es un tinte del 6 %, así que no se nota.
+  Prueba nueva `pruebas/juntos.js` (13 revisiones, PC y celular: que 801 trazos quepan en 2 caminos con sus 801 trozos, que la
+  curva salga con su arco dentro del camino junto, que el relleno y lo elegido queden aparte, que lo escondido no se dibuje,
+  que tocar siga eligiendo bien, y que acercar con 3000 polilíneas cueste casi lo mismo que con el dibujo vacío).
+  Batería: 36 de 36. El DXF de un dibujo sin curvas sigue **idéntico byte por byte** al de la v31.
 - Versión 32 (2026-10-23, auditoría `/ponytail-audit` del 2026-10-23 sobre la v31; Brian: "arregla todo"): **12 de los 13
   hallazgos**. El que queda (las líneas y figuras siguen siendo elementos del SVG) va en la v33, porque es estructural.
   (1) **Leer un DXF grande era cuadrático**: la rama POLYLINE le pasaba una copia del resto del archivo a `hacer` por cada
@@ -294,7 +311,7 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 - Versión 12 (2026-10-23, Brian: "fijos en pantalla"): en el Dibujo los puntos y los textos ya no crecen ni se encogen mientras se acerca o aleja (antes se veían así hasta soltar, porque el gesto agranda la imagen ya pintada). Siguiente (boceto aprobado https://claude.ai/artifact/JNTwQqdoa1X2NoKX8tvyn6): superficie dentro del Dibujo, etapa 2D (ver y editar triángulos: quitar, voltear lado, unir dos puntos, devolver) y luego 3D en el mismo panel.
 - Versión 11 (2026-10-22, Brian aprobó el boceto y "empieza la primera etapa"): pestaña Presentación, etapa 1: hoja carta horizontal o vertical (los demás tamaños se ven como "pronto"), 5 plantillas de rótulo con datos del proyecto y logos, ventanas al dibujo a escala, secciones, tabla de volúmenes, varias hojas y PDF de todas. `Btn` acepta `className` y `aria-label`. Pendiente (etapas siguientes): más tamaños de hoja, cuadro de coordenadas, textos sueltos, girar la ventana, rótulo propio de Brian (plantilla 6).
 - Versión 10 (2026-10-22, Brian: "quiero arreglar todo" lo de la auditoría de la v9): proyecto grande solo en IndexedDB (no llena el localStorage de TopoVías); tope de 2000 secciones con aviso; aviso de puntos repetidos con otra cota y de puntos en línea recta; áreas de la sección desde los polígonos que se pintan; al borrar una superficie del volumen pide elegir de nuevo; leyenda del PDF en varias líneas; sección a la mitad del ángulo en un vértice; varias líneas de título al importar; la lectura del archivo se guarda (`LECTURA_IMP`); quitado `BloqueoCtx`. Pruebas nuevas en `superficies.js` (también elegir quiebre y límite en pantalla) e `importar.js`; las nuevas fallan con la v9 y pasan con la v10.
-- Auditoría con /ponytail-audit: 2026-10-23 (v31): 4 fallos de datos o de carga (DXF grande cuadrático, unidades, texto centrado, líneas en el SVG), 5 que deberíamos arreglar y 4 pequeños. Los 12 primeros se arreglaron en la v32; el de las líneas en el SVG, en la v33. Antes: 2026-10-23 (v17): 2 fallos de datos (los selectores de superficie), 2 arreglos de fondo y 3 mejoras; todo se arregló en la v18. Antes: 2026-10-22 (v9), arreglado en la v10.
+- Auditoría con /ponytail-audit: 2026-10-23 (v31): 4 fallos de datos o de carga (DXF grande cuadrático, unidades, texto centrado, líneas en el SVG), 5 que deberíamos arreglar y 4 pequeños. Los 12 primeros se arreglaron en la v32; el de las líneas en el SVG, en la v33 (trazos juntos). Antes: 2026-10-23 (v17): 2 fallos de datos (los selectores de superficie), 2 arreglos de fondo y 3 mejoras; todo se arregló en la v18. Antes: 2026-10-22 (v9), arreglado en la v10.
 - Versión 9 (2026-10-22): batería completa (`correr.js`, `sinconexion.js`) y arreglo: Volúmenes avisa si la línea de las secciones se borró del dibujo. Probado además con 7.000 puntos (TIN 29 ms, 38 secciones 81 ms, mallas 43 ms, cada pestaña abre en menos de 0.2 s en el celular) y en tema oscuro.
 - Versión 8 (2026-10-22): "Informe PDF" en Volúmenes (jsPDF incrustado). Revisado por páginas con pdftoppm: nada se sale de su casilla.
 - Versión 7 (2026-10-22): pestañas Secciones (sobre una línea, eje o polilínea del dibujo; cada 5/10/20/otro m; ancho a cada lado; la abscisa del eje si la línea es un eje) y Volúmenes (por secciones con la tabla que cuadra con las secciones, y por mallas como principal o para comparar). Pestañas del proyecto con ícono arriba para que quepan las cuatro en el celular.
