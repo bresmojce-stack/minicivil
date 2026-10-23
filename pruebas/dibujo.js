@@ -35,7 +35,7 @@ const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node22/lib/node_mod
   console.log('2. puntos:', JSON.stringify((await objs()).map(o => o.nom + ' ' + o.y + ',' + o.x)));
   // mapa mundo→pantalla a partir de los dos puntos dibujados
   let pts, k;
-  const mapa = async () => { pts = await p.$$eval('.tv-dib-svg circle[fill="#DC2626"]', cs => cs.map(c => { const r = c.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })); k = (pts[1][0] - pts[0][0]) / 40; };
+  const mapa = async () => { pts = await p.$$eval('.tv-dib-svg .tv-pt[stroke="#DC2626"]', cs => cs.map(c => { const r = c.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })); k = (pts[1][0] - pts[0][0]) / 40; };
   await mapa();
   const S = (E, N) => [pts[0][0] + (E - 1000) * k, pts[0][1] - (N - 1000) * k];
   console.log('   escala px/m:', k.toFixed(2), '| Y coincide:', Math.abs((pts[0][1] - pts[1][1]) / 30 - k) < 0.05);
