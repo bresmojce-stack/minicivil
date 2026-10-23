@@ -14,7 +14,7 @@ const path = require('path');
   const objs = []; for (let i = 0; i <= 6; i++) for (let j = 0; j <= 6; j++) objs.push({ id: 100 + i * 10 + j, t: 'p', x: 1000000 + i * 10, y: 900000 + j * 10, z: 100 + 3 * Math.sin(i / 2) + j * 0.5, nom: String(i * 7 + j + 1), d: 'TN' });
   objs.push({ id: 'muro', t: 'pl', alto: 2, v: [{ x: 1000010, y: 900020, z: 104 }, { x: 1000050, y: 900020, z: 104 }] });
   objs.push({ id: 'borde', t: 'pl', v: [{ x: 1000000, y: 900060 }, { x: 1000060, y: 900060 }] });   // sin cota: va sobre la superficie
-  const proyecto = [{ id: 1, nombre: 'Lote', creado: '', dibujos: [{ id: 2, nombre: 'Lev', sig: 60, objs }], superficies: [{ id: 'tn', nombre: 'Terreno', fuente: { tipo: 'desc', descs: ['TN'] }, color: '#16A34A', curvas: '' }] }];
+  const proyecto = [{ id: 1, nombre: 'Lote', creado: '', dibujos: [{ id: 2, nombre: 'Lev', sig: 60, objs }], superficies: [{ id: 'tn', nombre: 'Terreno', fuente: { tipo: 'desc', descs: ['TN'] }, color: '#16A34A', curvas: '1' }] }];
   await p.evaluate(v => { localStorage.clear(); localStorage.setItem('minicivil', JSON.stringify(v)); localStorage.setItem('minicivil__t', String(Date.now() + 99999)); localStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'dibujo' })); }, proyecto);
   await p.reload(); await p.waitForSelector('.tv-dib-svg'); await p.waitForTimeout(300);
   const datos = () => p.evaluate(() => { vaciarGuardado(); return JSON.parse(localStorage.getItem('minicivil'))[0]; });
@@ -44,6 +44,36 @@ const path = require('path');
         ok(!(await p.$('.mc-3d-dibujo')) && await p.$('.mc-sup-marca') !== null, '"Ver en 2D" vuelve al Dibujo con el triángulo marcado en naranja'); }
       else ok(false, 'un segundo toque también marca un triángulo');
     }
+  }
+  // ── v24: cómo se ve la superficie: sólido, triángulos y curvas de nivel, cada uno aparte ──
+  if (!(await p.$('.mc-3d-dibujo'))) { await p.click('.mc-modo button[data-modo="3D"]'); await p.waitForSelector('.mc-3d-dibujo'); await p.waitForTimeout(800); }
+  if (await p.$('.mc-3d-dibujo .mc-3d-lienzo')) {
+    const verdes = () => p.evaluate(() => { const c = document.querySelector('.mc-3d-dibujo .mc-3d-lienzo'), x = document.createElement('canvas');
+      x.width = c.width; x.height = c.height; const g = x.getContext('2d'); g.drawImage(c, 0, 0);
+      const d = g.getImageData(0, 0, x.width, x.height).data; let n = 0, claros = 0;
+      for (let i = 0; i < d.length; i += 4) { if (d[i + 1] > d[i] + 20 && d[i + 1] > d[i + 2] + 20) { n++; if (d[i + 1] > 170) claros++; } }
+      let pintado = 0;
+      for (let i = 0; i < d.length; i += 4) { if (Math.abs(d[i] - 30) > 12 || Math.abs(d[i + 1] - 37) > 12 || Math.abs(d[i + 2] - 48) > 12) pintado++; }
+      return { n, claros, pintado }; });
+    const hoy = await verdes();
+    ok(hoy.n > 500, 'de entrada se ve la superficie en 3D (' + hoy.n + ' muestras del color del terreno)');
+    await p.click('.mc-3d label:has-text("Curvas de nivel") input'); await p.waitForTimeout(600);
+    const conCurvas = await verdes();
+    ok(conCurvas.claros > hoy.claros + 40, 'con "Curvas de nivel" salen las curvas a su cota, más claras que el terreno (' + hoy.claros + ' → ' + conCurvas.claros + ')');
+    await p.click('.mc-3d label:has-text("Sólido") input'); await p.waitForTimeout(500);
+    const sinSolido = await verdes();
+    ok(sinSolido.n < conCurvas.n && sinSolido.n > 40, 'se apaga el sólido y quedan los triángulos y las curvas (' + conCurvas.n + ' → ' + sinSolido.n + ')');
+    await p.click('.mc-3d label:has-text("Triángulos") input'); await p.waitForTimeout(500);
+    const soloCurvas = await verdes();
+    ok(soloCurvas.pintado < sinSolido.pintado * 0.75 && soloCurvas.n > 30,
+      'y apagando los triángulos quedan solo las curvas (' + sinSolido.pintado + ' → ' + soloCurvas.pintado + ' píxeles dibujados)');
+    // se acuerda al volver a entrar
+    await p.click('.mc-3d-dibujo button:has-text("‹ 2D")'); await p.waitForTimeout(300);
+    await p.click('.mc-modo button[data-modo="3D"]'); await p.waitForSelector('.mc-3d-dibujo'); await p.waitForTimeout(900);
+    ok(await p.isChecked('.mc-3d label:has-text("Curvas de nivel") input') && !(await p.isChecked('.mc-3d label:has-text("Sólido") input')),
+      'al volver a entrar se acuerda de cómo quedó la vista');
+    await p.click('.mc-3d label:has-text("Sólido") input'); await p.click('.mc-3d label:has-text("Triángulos") input');
+    await p.click('.mc-3d label:has-text("Curvas de nivel") input'); await p.waitForTimeout(400);
   }
   // ── v23: los textos de los puntos en 3D (cota y descripción), cada uno con su casilla ──
   if (!(await p.$('.mc-3d-dibujo'))) { await p.click('.mc-modo button[data-modo="3D"]'); await p.waitForSelector('.mc-3d-dibujo'); await p.waitForTimeout(800); }
@@ -78,6 +108,23 @@ const path = require('path');
     await p.click('.mc-modo button[data-modo="3D"]'); await p.waitForSelector('.mc-3d-dibujo'); await p.waitForTimeout(700);
     ok(await p.isChecked('.mc-3d label:has-text("Cota") input') && await cuantos() > 0, 'al volver a entrar al 3D se acuerda de las casillas');
     await p.click('.mc-3d label:has-text("Cota") input'); await p.waitForTimeout(300);
+  }
+  // ── v24: los ajustes de la superficie se cambian sin salir del 3D ──
+  if (!(await p.$('.mc-3d-dibujo'))) { await p.click('.mc-modo button[data-modo="3D"]'); await p.waitForSelector('.mc-3d-dibujo'); await p.waitForTimeout(800); }
+  if (await p.$('.mc-3d-ajustes')) {
+    await p.click('.mc-3d-ajustes'); await p.waitForTimeout(400);
+    ok(await p.$('.mc-3d-editor .mc-editor-sup') !== null, 'el botón ⚙ abre los ajustes de la superficie dentro del 3D');
+    await p.fill('.mc-3d-editor .mc-curvas', '2');
+    await p.fill('.mc-3d-editor .mc-sup-nombre', 'Terreno natural');
+    await p.click('.mc-3d-editor button:has-text("Guardar superficie")'); await p.waitForTimeout(900);
+    const d2 = await datos();
+    ok(!(await p.$('.mc-3d-editor')) && d2.superficies[0].curvas === '2' && d2.superficies[0].nombre === 'Terreno natural',
+      'se guardan los cambios y el 3D vuelve, con la superficie ya cambiada');
+    ok((await p.textContent('.mc-3d')).includes('Terreno natural'), 'el nombre nuevo sale en las casillas del 3D');
+    await p.click('.mc-3d-ajustes'); await p.waitForTimeout(400);
+    await p.fill('.mc-3d-editor .mc-sup-nombre', 'NO GUARDAR');
+    await p.click('.mc-3d-editor button:has-text("Cancelar")'); await p.waitForTimeout(500);
+    ok(!(await p.$('.mc-3d-editor')) && (await datos()).superficies[0].nombre === 'Terreno natural', 'Cancelar no cambia nada');
   }
   if (await p.$('.mc-3d-dibujo')) await p.click('.mc-3d-dibujo button:has-text("‹ 2D")');
   await p.waitForTimeout(200);
