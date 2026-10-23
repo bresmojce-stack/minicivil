@@ -43,8 +43,10 @@ const path = require('path');
   await p.reload(); await p.waitForSelector('.tv-dib-svg'); await p.waitForTimeout(400);
   const datos = () => p.evaluate(() => { vaciarGuardado(); return JSON.parse(localStorage.getItem('minicivil'))[0]; });
   // de terreno a pantalla, con dos puntos que se ven
-  const mapa = await p.evaluate(() => { const cs = [...document.querySelectorAll('.tv-dib-svg .tv-fijo .tv-pt')], s = document.querySelector('.tv-dib-svg').getBoundingClientRect();
-    const a = cs[0], z = cs[cs.length - 1]; return { ax: +a.getAttribute('x1'), ay: +a.getAttribute('y1'), zx: +z.getAttribute('x1'), zy: +z.getAttribute('y1'), left: s.left, top: s.top }; });
+  // los puntos van en la imagen de fondo: su sitio lo da MC_DIB.aP (el primero en 1000000/900000 y el último 60 m más allá)
+  const mapa = await p.evaluate(() => { const s = document.querySelector('.tv-dib-svg').getBoundingClientRect();
+    const a = MC_DIB.aP({ x: 1000000, y: 900000 }), z = MC_DIB.aP({ x: 1000060, y: 900060 });
+    return { ax: a.X, ay: a.Y, zx: z.X, zy: z.Y, left: s.left, top: s.top }; });
   const kx = (mapa.zx - mapa.ax) / 60, ky = (mapa.zy - mapa.ay) / 60;   // el primero es (0,0) y el último (60,60), en metros desde 1000000/900000
   const pant = (x, y) => ({ x: mapa.left + mapa.ax + x * kx, y: mapa.top + mapa.ay + y * ky });
   const tocar = async (x, y) => { const q = pant(x, y); await p.mouse.click(q.x, q.y); await p.waitForTimeout(150); };

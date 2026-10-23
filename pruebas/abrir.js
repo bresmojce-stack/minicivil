@@ -33,7 +33,9 @@ const path = require('path');
   }
   await p.click('.tv-dib-teclado button:has-text("Cerrar")');
   await herr('ver', '@todo'); await p.waitForTimeout(150);
-  const pts = await p.$$eval('.tv-dib-svg .tv-pt[stroke="#DC2626"]', cs => cs.map(c => { const r = c.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; }));
+  // los puntos se pintan en la imagen de fondo: su sitio en la pantalla lo da MC_DIB.aP (norte, este → píxeles del lienzo)
+  const pts = await p.evaluate(() => { const r = document.querySelector('.tv-dib-svg').getBoundingClientRect();
+    return [{ x: 1000, y: 1000 }, { x: 1040, y: 1030 }].map(q => { const s = MC_DIB.aP(q); return [r.left + s.X, r.top + s.Y]; }); });
   await herr('dibujar', 'linea');
   for (const [x, y] of pts) { if (movil) await p.touchscreen.tap(x + 3, y - 3); else await p.mouse.click(x + 3, y - 3); await p.waitForTimeout(120); }
   const datos = () => p.evaluate(() => { vaciarGuardado(); return JSON.parse(localStorage.getItem('minicivil')); });

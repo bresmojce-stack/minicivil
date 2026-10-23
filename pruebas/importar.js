@@ -78,8 +78,10 @@ const path = require('path'), fs = require('fs'), os = require('os');
   ok(p4 && p4.x === 2018.2 && p4.y === 1018.64 && p4.z === 1519.63 && p4.d === 'TN', 'el punto guarda norte, este, cota y descripción: ' + JSON.stringify(p4));
   ok(p5 && !('z' in p5), 'sin cota queda sin altura');
   ok(p2.col && p8.col === pts.find(o => o.nom === '3').col && new Set([p2.col, p8.col, p4.col, pts.find(o => o.nom === '1').col]).size === 4, 'un color por descripción (EJE y eje juntos): BORDE ' + p2.col + ', EJE ' + p8.col + ', TN ' + p4.col);
-  const textos = await p.$$eval('.tv-dib-svg text', ts => ts.map(t => t.textContent));
-  ok(textos.includes('1519.630') && textos.includes('TN') && textos.includes('4'), 'en el dibujo se ven número, cota y descripción');
+  // los puntos y sus textos se pintan en la imagen de fondo: MC_DIB dice cuántos salieron y los del primero
+  const pintado = await p.evaluate(() => ({ txt: MC_DIB.txt, muestra: MC_DIB.muestra }));
+  ok(pintado.muestra && pintado.muestra.textos.length === 3 && /^\d+\.\d{3}$/.test(pintado.muestra.textos[1]) && /^[A-Za-z]/.test(pintado.muestra.textos[2]),
+    'en el dibujo se ven número, cota y descripción: ' + JSON.stringify(pintado.muestra && pintado.muestra.textos));
   // deshacer los quita todos juntos
   await p.click('.tv-dib-nav button[data-grupo=editar]'); const dh = await p.$('.tv-dib-hoja button[data-herr="@deshacer"]');
   if (dh) { await dh.click(); } else { await p.click('.tv-dib-nav button[data-grupo=editar]'); await p.click('button[title^="Deshacer"]'); }
@@ -114,8 +116,9 @@ const path = require('path'), fs = require('fs'), os = require('os');
   ok(ds[0].objs.filter(o => o.oculto).map(o => o.nom).sort().join(',') === '3,8', 'esconder lo filtrado: ' + ds[0].objs.filter(o => o.oculto).map(o => o.nom).join(','));
   await p.click('button:has-text("Quitar filtros")');
   await p.click('input[data-mostrar=z]'); await p.waitForTimeout(150);
-  const textos2 = await p.$$eval('.tv-dib-svg text', ts => ts.map(t => t.textContent));
-  ok(!textos2.includes('1519.630') && textos2.includes('TN'), 'quitar "Cota" de lo que se muestra la esconde del dibujo');
+  const pintado2 = await p.evaluate(() => ({ txt: MC_DIB.txt, muestra: MC_DIB.muestra }));
+  ok(pintado2.muestra && pintado2.muestra.textos.length === 2 && !pintado2.muestra.textos.some(t => /^\d+\.\d{3}$/.test(t)) && /^[A-Za-z]/.test(pintado2.muestra.textos[1])
+    && pintado2.txt < pintado.txt, 'quitar "Cota" de lo que se muestra la esconde del dibujo: ' + JSON.stringify(pintado2.muestra && pintado2.muestra.textos));
   ds = await datos();
   ok(ds[0].etq && ds[0].etq.z === false, 'lo que se muestra queda guardado en el dibujo');
   await p.click('input[data-mostrar=z]');

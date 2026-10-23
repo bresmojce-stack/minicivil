@@ -32,21 +32,23 @@ const path = require('path');
   const tocarCorto = async (x, y) => { await toque('touchStart', [[x, y]]); await p.waitForTimeout(70); await toque('touchEnd', []); await p.waitForTimeout(350); };
 
   await herr('dibujar', 'linea');
+  const unPunto = () => p.evaluate(() => { const r = document.querySelector('.tv-dib-svg').getBoundingClientRect(), s = MC_DIB.aP({ x: 1000000, y: 900000 }); return { x: r.left + s.X, y: r.top + s.Y }; });
+  const libres0 = await unPunto();
   const a0 = await estado();
   // 1. arrastrar un dedo con la herramienta Línea: mueve la vista y no dibuja
   await arrastrar(cx - 120, cy - 60, 220, 110);
   const a1 = await estado();
   ok(a1.n === a0.n && /primer punto/.test(a1.cmd), 'arrastrar un dedo con Línea no dibuja (' + a1.n + ' objetos, "' + a1.cmd.trim() + '")');
   // puntos que estén a la vista y lejos de los botones flotantes (abajo a la derecha) y de la barra de escala
-  const tocables = () => p.evaluate(c => [...document.querySelectorAll('.tv-dib-svg .tv-fijo')].map(g => {
-      const m = g.querySelector('.tv-pt'), t = g.querySelector('text'); if (!m || !t) return null;
-      const q = new DOMPoint(+m.getAttribute('x1'), +m.getAttribute('y1')).matrixTransform(m.getScreenCTM());
-      return { nom: t.textContent, x: q.x, y: q.y };
-    }).filter(q => q && q.x > c.x + 20 && q.x < c.x + c.width - 20 && q.y > c.y + 20 && q.y < c.y + c.height - 20
+  // los puntos se pintan en la imagen de fondo: su sitio lo da MC_DIB.aP (cuadrícula de 5 x 5 cada 10 m desde 1000000/900000)
+  const tocables = () => p.evaluate(c => { const r = document.querySelector('.tv-dib-svg').getBoundingClientRect(), l = [];
+    for (let i = 0; i < 25; i++) { const s = MC_DIB.aP({ x: 1000000 + (i % 5) * 10, y: 900000 + Math.floor(i / 5) * 10 });
+      l.push({ nom: String(i + 1), x: r.left + s.X, y: r.top + s.Y }); }
+    return l.filter(q => q.x > c.x + 20 && q.x < c.x + c.width - 20 && q.y > c.y + 20 && q.y < c.y + c.height - 20
       && !(q.x > c.x + c.width - 190 && q.y > c.y + c.height - 170)     // botones flotantes y Deshacer
-      && !(q.x < c.x + 230 && q.y > c.y + c.height - 60)), caja);       // barra de escala
+      && !(q.x < c.x + 230 && q.y > c.y + c.height - 60)); }, caja);    // barra de escala
   let libres = await tocables();
-  ok(libres.length !== 25, 'el dibujo se corrió con el dedo (' + libres.length + ' puntos tocables)');
+  ok(Math.hypot(libres0.x - (await unPunto()).x, libres0.y - (await unPunto()).y) > 40, 'el dibujo se corrió con el dedo');
   if (libres.length < 2) {   // en pantallas angostas el arrastre puede dejarlos casi afuera: se encuadra todo
     await herr('ver', '@todo'); await p.waitForTimeout(400); libres = await tocables();
     await herr('dibujar', 'linea');
@@ -83,7 +85,8 @@ const path = require('path');
   // 6. Seleccionar varios conserva su recuadro
   await herr('editar', 'seleccionar');
   // el recuadro se hace alrededor de puntos que están a la vista
-  const zona = await p.evaluate(() => { const qs = [...document.querySelectorAll('.tv-dib-svg .tv-fijo .tv-pt')].map(m => new DOMPoint(+m.getAttribute('x1'), +m.getAttribute('y1')).matrixTransform(m.getScreenCTM()));
+  const zona = await p.evaluate(() => { const r = document.querySelector('.tv-dib-svg').getBoundingClientRect(), qs = [];
+    for (let i = 0; i < 25; i++) { const s = MC_DIB.aP({ x: 1000000 + (i % 5) * 10, y: 900000 + Math.floor(i / 5) * 10 }); qs.push({ x: r.left + s.X, y: r.top + s.Y }); }
     const xs = qs.map(q => q.x), ys = qs.map(q => q.y); return { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) }; });
   await arrastrar(zona.x0 - 12, zona.y0 - 12, (zona.x1 - zona.x0) + 24, (zona.y1 - zona.y0) + 24);
   const sel = await p.evaluate(() => document.querySelector('.tv-dib-cmd').textContent.replace(/\s+/g, ' '));
