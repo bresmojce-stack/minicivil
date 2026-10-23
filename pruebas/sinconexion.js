@@ -24,7 +24,7 @@ const path = require('path'), http = require('http'), fs = require('fs');
   await p.fill('form input', 'Sin señal'); await p.click('form button[type=submit]'); await p.waitForTimeout(600);
   await p.evaluate(() => vaciarGuardado());
   await ctx.setOffline(true);
-  await p.reload(); await p.waitForSelector('header.tv-header', { timeout: 15000 }); await p.waitForTimeout(500);
+  await p.reload(); await p.waitForSelector('.tv-main', { timeout: 15000 }); await p.waitForTimeout(500);   // dentro de un proyecto ya no hay barra de arriba (v22)
   ok((await p.textContent('body')).includes('Sin señal'), 'sin internet la app abre con sus datos');
   ok(await p.evaluate(() => typeof Delaunator === 'function' && typeof THREE === 'object' && !!window.jspdf && typeof Constrainautor === 'function'), 'sin internet están las cuatro librerías (triangulación, quiebres, 3D y PDF)');
   ok(!errs.length, 'sin errores' + (errs.length ? ': ' + errs.join(' | ') : ''));

@@ -83,12 +83,16 @@ const path = require('path');
   const a5 = await estado();
   ok(a5.n === a4.n, 'en Superficie el arrastre no cambia el dibujo');
   // 6. Seleccionar varios conserva su recuadro
+  await herr('ver', '@todo'); await p.waitForTimeout(400);   // todos a la vista: el recuadro no depende de dónde quedó la vista
   await herr('editar', 'seleccionar');
   // el recuadro se hace alrededor de puntos que están a la vista
   const zona = await p.evaluate(() => { const r = document.querySelector('.tv-dib-svg').getBoundingClientRect(), qs = [];
     for (let i = 0; i < 25; i++) { const s = MC_DIB.aP({ x: 1000000 + (i % 5) * 10, y: 900000 + Math.floor(i / 5) * 10 }); qs.push({ x: r.left + s.X, y: r.top + s.Y }); }
     const xs = qs.map(q => q.x), ys = qs.map(q => q.y); return { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) }; });
-  await arrastrar(zona.x0 - 12, zona.y0 - 12, (zona.x1 - zona.x0) + 24, (zona.y1 - zona.y0) + 24);
+  const cj = await (await p.$('.tv-dib-svg')).boundingBox();   // el recuadro tiene que empezar y acabar DENTRO del lienzo
+  const ax = Math.max(cj.x + 6, zona.x0 - 12), ay = Math.max(cj.y + 6, zona.y0 - 12);
+  const bx = Math.min(cj.x + cj.width - 6, zona.x1 + 12), by = Math.min(cj.y + cj.height - 6, zona.y1 + 12);
+  await arrastrar(ax, ay, bx - ax, by - ay);
   const sel = await p.evaluate(() => document.querySelector('.tv-dib-cmd').textContent.replace(/\s+/g, ' '));
   const marcados = await p.$$eval('.tv-dib-capa [stroke="#F59E0B"], .tv-dib-capa [fill="#F59E0B"]', e => e.length);
   ok(/elegid|\(\d+\)/.test(sel) || marcados > 0, 'Seleccionar varios sigue haciendo el recuadro con el dedo ("' + sel.trim().slice(0, 44) + '")');
