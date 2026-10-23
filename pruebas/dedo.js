@@ -1,0 +1,103 @@
+// Dibujo con el dedo (boceto aprobado por Brian): arrastrar un dedo mueve la vista en cualquier herramienta,
+// un toque corto pone el punto (pegado al imán) y, si el dedo se queda quieto, sale la lupa para apuntar fino.
+//   node pruebas/dedo.js [index.html]
+const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node22/lib/node_modules/playwright');
+const path = require('path');
+(async () => {
+  const archivo = path.resolve(process.argv[2] || path.join(__dirname, '..', 'index.html'));
+  const b = await chromium.launch();
+  const ctx = await b.newContext({ viewport: { width: +(process.env.W || 1000), height: 700 }, isMobile: true, hasTouch: true });
+  const p = await ctx.newPage(); const errs = []; p.on('pageerror', e => errs.push(e.message));
+  let fallas = 0; const ok = (bien, txt) => { console.log((bien ? 'bien  ' : 'FALLA ') + txt); if (!bien) fallas++; };
+  await p.goto('file://' + archivo); await p.waitForSelector('header.tv-header');
+  // cuadrícula de puntos cada 10 m, para que haya imanes
+  const objs = []; for (let i = 0; i < 25; i++) objs.push({ id: i + 1, t: 'p', x: 1000000 + (i % 5) * 10, y: 900000 + Math.floor(i / 5) * 10, nom: String(i + 1) });
+  await p.evaluate(v => { localStorage.clear(); localStorage.setItem('minicivil', JSON.stringify(v)); localStorage.setItem('minicivil__t', String(Date.now() + 99999)); localStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'dibujo' })); },
+    [{ id: 1, nombre: 'Z', creado: '', dibujos: [{ id: 2, nombre: 'Lev', sig: 26, objs }] }]);
+  await p.reload(); await p.waitForSelector('.tv-dib-svg'); await p.waitForTimeout(500);
+  const cdp = await ctx.newCDPSession(p);
+  const toque = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : pts.map(([x, y], i) => ({ x, y, id: i + 1 })) });
+  const caja = await (await p.$('.tv-dib-svg')).boundingBox(), cx = caja.x + caja.width / 2, cy = caja.y + caja.height / 2;
+  const herr = async (g, id) => { await p.click(`.tv-dib-nav button[data-grupo=${g}]`); await p.click(`.tv-dib-hoja button[data-herr="${id}"]`); await p.waitForTimeout(150); };
+  const estado = () => p.evaluate(() => { vaciarGuardado();
+    const d = JSON.parse(localStorage.getItem('minicivil'))[0].dibujos[0];
+    return { n: d.objs.length, ultimo: d.objs[d.objs.length - 1], cmd: document.querySelector('.tv-dib-cmd').textContent.replace(/\s+/g, ' ').slice(0, 22),
+      escala: document.querySelector('.tv-dib-escala div').textContent.trim(), lupa: !!document.querySelector('.tv-dib-lupa') }; });
+  const arrastrar = async (x0, y0, dx, dy, pausa) => {
+    await toque('touchStart', [[x0, y0]]);
+    if (pausa) await p.waitForTimeout(pausa);
+    for (let i = 1; i <= 8; i++) { await toque('touchMove', [[x0 + dx * i / 8, y0 + dy * i / 8]]); await p.waitForTimeout(16); }
+    await toque('touchEnd', []); await p.waitForTimeout(350);
+  };
+  const tocarCorto = async (x, y) => { await toque('touchStart', [[x, y]]); await p.waitForTimeout(70); await toque('touchEnd', []); await p.waitForTimeout(350); };
+
+  await herr('dibujar', 'linea');
+  const a0 = await estado();
+  // 1. arrastrar un dedo con la herramienta Línea: mueve la vista y no dibuja
+  await arrastrar(cx - 120, cy - 60, 220, 110);
+  const a1 = await estado();
+  ok(a1.n === a0.n && /primer punto/.test(a1.cmd), 'arrastrar un dedo con Línea no dibuja (' + a1.n + ' objetos, "' + a1.cmd.trim() + '")');
+  // puntos que estén a la vista y lejos de los botones flotantes (abajo a la derecha) y de la barra de escala
+  const tocables = () => p.evaluate(c => [...document.querySelectorAll('.tv-dib-svg .tv-fijo')].map(g => {
+      const m = g.querySelector('.tv-pt'), t = g.querySelector('text'); if (!m || !t) return null;
+      const q = new DOMPoint(+m.getAttribute('x1'), +m.getAttribute('y1')).matrixTransform(m.getScreenCTM());
+      return { nom: t.textContent, x: q.x, y: q.y };
+    }).filter(q => q && q.x > c.x + 20 && q.x < c.x + c.width - 20 && q.y > c.y + 20 && q.y < c.y + c.height - 20
+      && !(q.x > c.x + c.width - 190 && q.y > c.y + c.height - 170)     // botones flotantes y Deshacer
+      && !(q.x < c.x + 230 && q.y > c.y + c.height - 60)), caja);       // barra de escala
+  let libres = await tocables();
+  ok(libres.length !== 25, 'el dibujo se corrió con el dedo (' + libres.length + ' puntos tocables)');
+  if (libres.length < 2) {   // en pantallas angostas el arrastre puede dejarlos casi afuera: se encuadra todo
+    await herr('ver', '@todo'); await p.waitForTimeout(400); libres = await tocables();
+    await herr('dibujar', 'linea');
+  }
+  ok(libres.length >= 2, 'quedan puntos a la vista para tocarlos (' + libres.length + ')');
+  const movido = libres[0], otro = libres[1];
+  // 2. toque corto: pone el primer punto, pegado al punto de al lado (imán)
+  await tocarCorto(movido.x + 4, movido.y - 3);
+  const a2 = await estado();
+  ok(/segundo punto/.test(a2.cmd) && a2.n === a0.n, 'un toque corto pone el primer punto de la línea ("' + a2.cmd.trim() + '")');
+  // 3. otro toque corto cierra la línea, y queda pegada a los dos puntos (imán)
+  await tocarCorto(otro.x - 3, otro.y + 4);
+  const a3 = await estado(), L = a3.ultimo;
+  const esPunto = (q, n) => { const i = +n - 1; return Math.abs(q.x - (1000000 + (i % 5) * 10)) < 0.01 && Math.abs(q.y - (900000 + Math.floor(i / 5) * 10)) < 0.01; };
+  const pegada = L && L.t === 'l' && esPunto(L.a, movido.nom) && esPunto(L.b, otro.nom);
+  ok(a3.n === a0.n + 1 && pegada, 'los dos toques dejan la línea pegada a los puntos ' + movido.nom + ' y ' + otro.nom + ' (imán)');
+  // 4. dedo quieto: sale la lupa, se ajusta y al soltar el punto queda donde apuntó
+  await herr('dibujar', 'punto');
+  await toque('touchStart', [[cx + 30, cy + 40]]); await p.waitForTimeout(500);
+  const conLupa = await estado();
+  ok(conLupa.lupa, 'con el dedo quieto sale la lupa para apuntar');
+  for (let i = 1; i <= 6; i++) { await toque('touchMove', [[cx + 30 + 3 * i, cy + 40 - 2 * i]]); await p.waitForTimeout(16); }
+  const enLupa = await estado();
+  ok(enLupa.escala === conLupa.escala, 'con la lupa abierta el arrastre apunta y no mueve la vista');
+  await toque('touchEnd', []); await p.waitForTimeout(400);
+  const a4 = await estado();
+  ok(a4.n === a3.n + 1 && a4.ultimo.t === 'p', 'al soltar la lupa queda el punto puesto (' + a4.n + ' objetos)');
+  // 5. las herramientas de Superficie: el arrastre mueve la vista (antes no hacía nada)
+  const e5 = (await estado()).escala;
+  await herr('superficie', 'supquitar');
+  await arrastrar(cx - 100, cy, 180, 60);
+  const a5 = await estado();
+  ok(a5.n === a4.n, 'en Superficie el arrastre no cambia el dibujo');
+  // 6. Seleccionar varios conserva su recuadro
+  await herr('editar', 'seleccionar');
+  // el recuadro se hace alrededor de puntos que están a la vista
+  const zona = await p.evaluate(() => { const qs = [...document.querySelectorAll('.tv-dib-svg .tv-fijo .tv-pt')].map(m => new DOMPoint(+m.getAttribute('x1'), +m.getAttribute('y1')).matrixTransform(m.getScreenCTM()));
+    const xs = qs.map(q => q.x), ys = qs.map(q => q.y); return { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) }; });
+  await arrastrar(zona.x0 - 12, zona.y0 - 12, (zona.x1 - zona.x0) + 24, (zona.y1 - zona.y0) + 24);
+  const sel = await p.evaluate(() => document.querySelector('.tv-dib-cmd').textContent.replace(/\s+/g, ' '));
+  const marcados = await p.$$eval('.tv-dib-capa [stroke="#F59E0B"], .tv-dib-capa [fill="#F59E0B"]', e => e.length);
+  ok(/elegid|\(\d+\)/.test(sel) || marcados > 0, 'Seleccionar varios sigue haciendo el recuadro con el dedo ("' + sel.trim().slice(0, 44) + '")');
+  // 7. la pluma sigue dibujando a mano alzada
+  await herr('dibujar', 'pluma');
+  const n7 = (await estado()).n;
+  await arrastrar(cx - 80, cy + 60, 160, -40);
+  const a7 = await estado();
+  ok(a7.n === n7 + 1 && a7.ultimo.t === 'fh', 'la pluma sigue dibujando a mano alzada con el dedo');
+
+  ok(!errs.length, 'sin errores' + (errs.length ? ': ' + errs.join(' | ') : ''));
+  await b.close();
+  console.log(fallas ? fallas + ' falla(s).' : 'Todo bien (dedo).');
+  process.exit(fallas ? 1 : 0);
+})();

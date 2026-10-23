@@ -9,8 +9,11 @@
     node pruebas/dibujo.js index.html <salida>   # recorrido completo del Dibujo copiado de TopoVías (W=390 celular)
     node pruebas/importar.js                     # importar puntos: 17 casos de archivos, recorrido, filtros, deshacer y DXF (W=390 celular)
     node pruebas/superficies.js                  # superficies, secciones y volúmenes con planos de resultado conocido + pantalla (W=390 celular)
-    node pruebas/zoom.js                         # Dibujo: zoom con la rueda y los dedos (puntos del mismo tamaño medidos en la imagen,
-                                                 # textos escondidos solo al acercar o alejar, pellizco con un dedo fuera del lienzo, Regenerar)
+    node pruebas/zoom.js                         # Dibujo: mover y acercar sin restos (se repinta en cada cuadro, sin transform; puntos
+                                                 # del mismo tamaño medidos en la imagen; solo se pinta lo que cabe; nubes de puntos
+                                                 # en un trazo; pellizco con un dedo fuera del lienzo; Regenerar imagen)
+    node pruebas/dedo.js                         # Dibujo con el dedo: arrastrar mueve la vista, toque corto pone el punto,
+                                                 # dedo quieto abre la lupa (W=390 para el celular)
     node pruebas/supdibujo.js                    # Superficie en el Dibujo: quitar/devolver, voltear, unir; cotas de una polilínea y DXF 3D (W=390 celular)
     node pruebas/dibujo3d.js                     # 3D dentro del Dibujo: botón 2D|3D, muros, tocar y quitar un triángulo, verlo en 2D (W=390 celular)
     node pruebas/presentacion.js                 # Presentación: escala exacta, 5 rótulos dentro de la hoja, PDF y recorrido en pantalla (W=390 celular)

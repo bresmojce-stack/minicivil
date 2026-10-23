@@ -5,7 +5,7 @@ const dir = __dirname, index = path.join(dir, '..', 'index.html'), salida = fs.m
 const P = [
   ['sintaxis', 'sintaxis.js', {}, []],
   ['abrir PC', 'abrir.js', {}, []], ['abrir celular', 'abrir.js', { W: '390' }, []], ['abrir tablet', 'abrir.js', { W: '820' }, []],
-  ['dibujo PC', 'dibujo.js', {}, [index, path.join(salida, 'dib')]], ['dibujo celular', 'dibujo.js', { W: '390' }, [index, path.join(salida, 'dibcel')]], ['zoom (puntos fijos)', 'zoom.js', {}, []], ['superficie en el dibujo PC', 'supdibujo.js', {}, []], ['superficie en el dibujo celular', 'supdibujo.js', { W: '390' }, []], ['3D en el dibujo PC', 'dibujo3d.js', {}, []], ['3D en el dibujo celular', 'dibujo3d.js', { W: '390' }, []],
+  ['dibujo PC', 'dibujo.js', {}, [index, path.join(salida, 'dib')]], ['dibujo celular', 'dibujo.js', { W: '390' }, [index, path.join(salida, 'dibcel')]], ['zoom sin restos', 'zoom.js', {}, []], ['dedo: arrastrar y apuntar PC', 'dedo.js', {}, []], ['dedo: arrastrar y apuntar celular', 'dedo.js', { W: '390' }, []], ['superficie en el dibujo PC', 'supdibujo.js', {}, []], ['superficie en el dibujo celular', 'supdibujo.js', { W: '390' }, []], ['3D en el dibujo PC', 'dibujo3d.js', {}, []], ['3D en el dibujo celular', 'dibujo3d.js', { W: '390' }, []],
   ['importar PC', 'importar.js', {}, []], ['importar celular', 'importar.js', { W: '390' }, []],
   ['superficies PC', 'superficies.js', {}, []], ['superficies celular', 'superficies.js', { W: '390' }, []], ['superficies tablet', 'superficies.js', { W: '820' }, []],
   ['presentación PC', 'presentacion.js', {}, []], ['presentación celular', 'presentacion.js', { W: '390' }, []],
