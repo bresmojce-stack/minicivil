@@ -105,8 +105,12 @@ const path = require('path');
   for (let i = 1; i <= 10; i++) { await toque('touchMove', [[cx - 40 - 8 * i, cy], [cx + 40 + 8 * i, cy]]); await t.waitForTimeout(16); }
   const enPellizco = { escala: await escalaBarra(t), limpio: await sinTransform(t) };
   const q1 = await donde(), d1 = await diametro(q1);
+  const gAntes = await t.evaluateHandle(() => document.querySelector('.tv-dib-capa'));
   await toque('touchEnd', []); await t.waitForTimeout(400);
   const q2 = await donde(), d2 = await diametro(q2);
+  // v20: al soltar, el dibujo se arma de nuevo solo (como "Regenerar imagen", sin tocar el botón)
+  ok(await t.evaluate(g => document.querySelector('.tv-dib-capa') !== g && document.querySelector('.tv-dib-capa').isConnected, gAntes),
+    'al soltar el pellizco el dibujo se arma de nuevo solo');
   ok(enPellizco.escala !== e0 && enPellizco.limpio, 'con los dedos el dibujo se pinta de nuevo mientras el gesto va (' + e0 + ' → ' + enPellizco.escala + ')');
   ok(Math.abs(d1 - d0) < 1.2 && Math.abs(d2 - d0) < 1.2 && d0 > 6, 'el punto mide lo mismo en la imagen antes, durante y después: ' + [d0, d1, d2].map(v => v.toFixed(1)).join(' / ') + ' px');
   ok(Math.hypot(q1.x - q2.x, q1.y - q2.y) < 1.5, 'al soltar el punto queda donde lo dejó el gesto (se movió ' + Math.hypot(q1.x - q2.x, q1.y - q2.y).toFixed(2) + ' px)');
@@ -115,7 +119,10 @@ const path = require('path');
   const antesMano = await donde();
   await toque('touchStart', [[cx, cy]]); for (let i = 1; i <= 6; i++) { await toque('touchMove', [[cx + 12 * i, cy + 6 * i]]); await t.waitForTimeout(16); }
   const enMano = { punto: await donde(), escala: await escalaBarra(t), limpio: await sinTransform(t) };
+  const gMano = await t.evaluateHandle(() => document.querySelector('.tv-dib-capa'));
   await toque('touchEnd', []); await t.waitForTimeout(300);
+  ok(await t.evaluate(g => document.querySelector('.tv-dib-capa') !== g && document.querySelector('.tv-dib-capa').isConnected, gMano),
+    'al soltar después de mover con el dedo el dibujo también se arma de nuevo solo');
   await t.click('[data-accion="mano"]'); await t.waitForTimeout(200);
   ok(enMano.limpio && enMano.escala === (await escalaBarra(t)) && Math.hypot(enMano.punto.x - antesMano.x, enMano.punto.y - antesMano.y) > 40,
     'al moverse con un dedo el dibujo se repinta corrido, sin escalar nada');
