@@ -25,10 +25,14 @@ const path = require('path');
     // línea de quiebre con cotas propias: un muro a 150 cruzando en y = 15 (vértices sin puntos debajo)
     const pr3 = { dibujos: [{ id: 1, objs: objs.concat([{ id: 'm', t: 'pl', v: [{ x: 5, y: 15, z: 150 }, { x: 35, y: 15, z: 150 }] }]) }] };
     const t3 = calcularTIN(pr3, { ...sup, quiebres: [{ dibId: 1, objId: 'm' }] });
-    return { n0: t0.n, n1: t1.n, q1: t1.quitados.length, antes: lado(t0), despues: lado(t2), av2: t2.avisos.join(' '), z3: zEnTIN(t3, 20, 15), z3b: zEnTIN(t3, 20, 30) };
+    // dos puntos en el mismo sitio con otra cota (corona 10 y pie 7): la superficie elige según su opción
+    const rep = { dibujos: [{ id: 1, objs: [{ id: 1, t: 'p', x: 5, y: 5, z: 7, nom: 'pie' }, { id: 2, t: 'p', x: 5, y: 5, z: 10, nom: 'corona' }, { id: 3, t: 'p', x: 0, y: 0, z: 5 }, { id: 4, t: 'p', x: 10, y: 0, z: 5 }, { id: 5, t: 'p', x: 0, y: 10, z: 5 }, { id: 6, t: 'p', x: 10, y: 10, z: 5 }] }] };
+    const zr = m => zEnTIN(calcularTIN(rep, { ...sup, repetido: m }), 5, 5), avAlto = calcularTIN(rep, { ...sup, repetido: 'alto' }).avisos.join(' ');
+    return { zPrim: zr(undefined), zAlto: zr('alto'), zBajo: zr('bajo'), avAlto, n0: t0.n, n1: t1.n, q1: t1.quitados.length, antes: lado(t0), despues: lado(t2), av2: t2.avisos.join(' '), z3: zEnTIN(t3, 20, 15), z3b: zEnTIN(t3, 20, 30) };
   });
   ok(r.n1 === r.n0 - 1 && r.q1 === 1, 'un triángulo quitado sale de la superficie y queda en la lista de quitados: ' + r.n0 + ' → ' + r.n1);
   ok(!r.antes && r.despues && !r.av2, 'un lado forzado entre dos puntos queda como lado de triángulo');
+  ok(r.zPrim === 7 && r.zAlto === 10 && r.zBajo === 7 && /se usa el más alto/.test(r.avAlto) && /Ppie cota 7\.000 → queda Pcorona cota 10\.000/.test(r.avAlto), 'mismo sitio con otra cota: el primero (7), el más alto (10) o el más bajo (7), y avisa cuál quedó: ' + [r.zPrim, r.zAlto, r.zBajo].join(' / '));
   ok(Math.abs(r.z3 - 150) < 1e-6 && Math.abs(r.z3b - 102) < 1e-6, 'la línea de quiebre con cotas propias usa esas cotas (150 en el muro; el resto sigue el terreno): ' + r.z3 + ' / ' + r.z3b);
 
   // ── 2. en pantalla ──

@@ -1,6 +1,6 @@
 // Mini Civil: funciona sin internet.
 // Al publicar una versión nueva, cambiar CACHE_VERSION (y TV_VERSION en index.html).
-const CACHE_VERSION = "minicivil-v14";
+const CACHE_VERSION = "minicivil-v15";
 const ARCHIVOS = ["./", "./index.html", "./manifest.json", "./icon-mc-192.png", "./icon-mc-512.png", "./icon-mc-maskable.png", "./apple-touch-icon.png", "./favicon.png"];
 
 self.addEventListener("install", e => {
