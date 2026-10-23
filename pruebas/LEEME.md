@@ -10,6 +10,7 @@
     node pruebas/importar.js                     # importar puntos: 17 casos de archivos, recorrido, filtros, deshacer y DXF (W=390 celular)
     node pruebas/superficies.js                  # superficies, secciones y volúmenes con planos de resultado conocido + pantalla (W=390 celular)
     node pruebas/zoom.js                         # Dibujo: puntos y textos del mismo tamaño en pantalla durante el zoom
+    node pruebas/supdibujo.js                    # Superficie en el Dibujo: quitar/devolver, voltear, unir; cotas de una polilínea y DXF 3D (W=390 celular)
     node pruebas/presentacion.js                 # Presentación: escala exacta, 5 rótulos dentro de la hoja, PDF y recorrido en pantalla (W=390 celular)
     node pruebas/nube.js                         # Google Drive simulado con dos equipos (subir, recibir, cambiar, borrar, aparte de TopoVías)
 
