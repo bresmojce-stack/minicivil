@@ -74,6 +74,25 @@ const path = require('path');
   ok(dsp.esc === 1000 && Math.abs(tam.W - dsp.w) < 1e-6, 'se le cambia la escala a 1:1000 y mide ' + tam.W.toFixed(1) + ' m de ancho en el terreno');
   ok(antes.esc !== dsp.esc && antes.w === dsp.w, 'la escala no cambia el tamaño en el papel, solo lo que ocupa en el terreno');
 
+  // ── girar la pieza (arreglo 8 de la auditoría): antes se movía pero quedaba derecha ──
+  const gir = await p.evaluate(() => {
+    const pz = { id: 9, t: 'pz', clase: 'tabla', p: { x: 0, y: 0 }, w: 100, h: 50, esc: 1000 };   // 100 × 50 m en el terreno
+    const g = transformar(pz, girarPunto({ x: 0, y: 0 }, Math.PI / 2), Math.PI / 2);
+    const esq = e2 => DIB.esquinasPz(e2).map(q => [+q.x.toFixed(3), +q.y.toFixed(3)]);
+    return { grados: +(g.ang * 180 / Math.PI).toFixed(2), antes: esq(pz), despues: esq(g) };
+  });
+  ok(gir.grados === 90 && gir.despues.join(';') === '0,0;0,100;50,100;50,0',
+    'girar 90° una pieza de 100 × 50 m la deja de verdad girada: esquinas ' + gir.despues.map(e2 => '(' + e2 + ')').join(' '));
+  const girPant = await p.evaluate(() => {
+    const d = HIST.actual.proyectos[0].dibujos[0];
+    const o = d.objs.find(q => q.t === 'pz');
+    HIST.crudo.proyectos(HIST.actual.proyectos.map(P => ({ ...P, dibujos: P.dibujos.map(dd => dd.id !== d.id ? dd : { ...dd, objs: dd.objs.map(q => q.id === o.id ? { ...q, ang: Math.PI / 4 } : q) }) })));
+    return true;
+  });
+  await p.waitForTimeout(500); void girPant;
+  const trans = await p.evaluate(() => { const g = document.querySelector('.mc-pz'); return g ? g.getAttribute('transform') : ''; });
+  ok(/rotate\(-45/.test(trans), 'en pantalla se dibuja girada (la pantalla tiene la Y al revés, así que 45° del terreno es -45 en el dibujo): ' + trans);
+
   // ── 4. viva: si cambia el paso de las secciones, la pieza cambia con él ──
   const v1 = await p.evaluate(() => primsDePieza(HIST.actual.proyectos[0], (HIST.actual.proyectos[0].dibujos[0].objs || []).find(q => q.t === 'pz' && q.clase === 'tabla')).length);
   await p.evaluate(() => { const P0 = HIST.actual.proyectos[0];

@@ -48,6 +48,28 @@ const path = require('path');
   ok(casi(r.bulF, 0.5, 1e-9) && casi(r.flecha, 2.5, 1e-9), 'de la flecha sale la curvatura (2.5 → 0.5) y al revés');
   ok(r.sinArco === null, 'curvatura 0 no es arco: sigue siendo un lado recto');
 
+  // ── arreglos de la auditoría del 2026-10-23 (v32) ──
+  const aud = await p.evaluate(() => {
+    const cua = bul => ({ t: 'pl', c: true, v: [{ x: 0, y: 0, b: bul }, { x: 10, y: 0 }, { x: 10, y: 10 }, { x: 0, y: 10 }] });
+    const o = cua(0.5);
+    const lim = v => { let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      v.forEach(q => { x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y); });
+      return [x0, y0, x1, y1].map(z => +z.toFixed(4)); };
+    // una lente: 2 vértices cerrados, cada lado con curvatura
+    const lente = { t: 'pl', c: true, v: [{ x: 0, y: 0, b: 1 }, { x: 10, y: 0, b: 1 }] };
+    return { caja: lim(DIB.caja(o)), cajaFina: lim(DIB.puntos(o)),
+      vertices: verticesDe(o).length, verticesRecto: verticesDe(cua(0)).length,
+      lenteLados: DIB.lados(lente).length, lenteCerrada: DIB.cerrada(lente), lenteArea: +DIB.areaObj(lente).toFixed(4),
+      cajaLente: lim(DIB.caja(lente)) };
+  });
+  ok(aud.caja[1] === -2.5 && aud.caja.join() === aud.cajaFina.join(),
+    'la caja de una figura con un lado curvo cubre el arco (baja hasta ' + aud.caja[1] + ', no hasta 0) y da lo mismo que la cuenta fina');
+  ok(aud.vertices > 20 && aud.verticesRecto === 4,
+    'para calcular (secciones, perfil, límite, quiebres) la polilínea curva se entrega partida en ' + aud.vertices + ' puntos; sin curvas siguen siendo 4');
+  ok(aud.lenteLados === 2 && aud.lenteCerrada === true && Math.abs(aud.lenteArea - 78.5398) < 1e-3,
+    'una lente (2 vértices cerrados con curvatura en los dos lados) cierra y mide ' + aud.lenteArea + ' m² (los dos semicírculos de radio 5)');
+  ok(aud.cajaLente.join() === '0,-5,10,5', 'y su caja la cubre entera: ' + aud.cajaLente.join(' '));
+
   // ── 2. el DXF ──
   const dxf = await p.evaluate(() => {
     const sin = { objs: [{ id: 1, t: 'pl', c: true, v: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }] }] };
@@ -56,7 +78,10 @@ const path = require('path');
   });
   ok(!/\r?\n\s*42\r?\n/.test(dxf.sin), 'un dibujo sin curvas no escribe ninguna curvatura en el DXF (archivo igual que siempre)');
   ok(/\r?\n\s*42\r?\n0?\.?5\r?\n/.test(dxf.con), 'el lado curvo sale al DXF en el grupo 42 con su valor (0.5)');
-  ok(dxf.con.replace(/\r?\n\s*42\r?\n[-\d.]+/g, '') === dxf.sin, 'quitando esa línea, el DXF con curva es idéntico al DXF sin curva');
+  // la lista de entidades y su orden son los mismos: lo único que cambia es la curvatura de un vértice
+  const tipos = s2 => (s2.match(/\r?\n\s*0\r?\n[A-Z]+/g) || []).map(x => x.trim().split(/\r?\n/)[1]).join(',');
+  ok(tipos(dxf.con) === tipos(dxf.sin) && (dxf.con.match(/\r?\n\s*42\r?\n/g) || []).length === 1,
+    'el DXF con curva tiene las mismas entidades en el mismo orden que el DXF sin curva, y una sola línea de curvatura');
 
   // ── 3. en pantalla ──
   await p.evaluate(v => { localStorage.clear(); localStorage.setItem('minicivil', JSON.stringify(v));
@@ -91,6 +116,12 @@ const path = require('path');
   ok(o2 && Math.abs(o2.v[0].b - 0.5) < 1e-6, 'se escribe el radio 6.25 y la curvatura queda en 0.5 (' + (o2 ? o2.v[0].b : '?') + ')');
   const txt = (await p.textContent('body')).replace(/\s+/g, ' ');
   ok(/117\.47/.test(txt) && /41\.59/.test(txt), 'el panel muestra el área 117.472 m² y el perímetro 41.591 m');
+
+  // la herramienta Medir → Área tiene que dar lo MISMO que el panel (antes daba 100, la cuerda)
+  await herr('medir', 'area');
+  { const s = await enPantalla({ x: 5, y: 5 }); await p.mouse.click(s.x, s.y); await p.waitForTimeout(400); }
+  const tArea = (await p.textContent('body')).replace(/\s+/g, ' ');
+  ok(/117\.47/.test(tArea), 'la herramienta Área da 117.472 m², igual que el panel de Elegir (antes daba 100 por medir la cuerda)');
 
   if (movil) ok(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'sin desplazamiento de lado en celular');
   ok(!errs.length, 'sin errores' + (errs.length ? ': ' + errs.join(' | ') : ''));

@@ -24,6 +24,7 @@ const DXF = ['0','SECTION','2','HEADER','9','$ACADVER','1','AC1015','0','ENDSEC'
  '0','CIRCLE','8','TN','10','1030.0','20','2000.0','30','0.0','40','4.0',
  '0','ARC','8','TN','10','1040.0','20','2000.0','30','0.0','40','3.0','50','0.0','51','90.0',
  '0','MTEXT','8','TN','10','1010.0','20','1975.0','40','0.5','1','\\fArial|b0;AREA 180 m2',
+ '0','TEXT','8','TN','10','0.0','20','0.0','40','2.0','1','CENTRADO','72','1','11','1060.0','21','1990.0',
  '0','INSERT','8','BORDE','2','ARBOL','10','1050.0','20','2000.0','41','1.0','42','1.0','50','90.0',
  '0','HATCH','8','TN','10','0.0','20','0.0',
  '0','DIMENSION','8','TN','10','0.0','20','0.0',
@@ -45,7 +46,7 @@ const DXF = ['0','SECTION','2','HEADER','9','$ACADVER','1','AC1015','0','ENDSEC'
   const r = await p.evaluate(t => leerDXF(t, 1), DXF);
   const cuenta = t => (r.resumen.find(x => x.tipo === t) || { n: 0 }).n;
   const salta = t => (r.saltados.find(x => x.tipo === t) || { n: 0 }).n;
-  ok(!r.error && r.objs.length === 8, 'lee el archivo: 8 objetos (punto, línea, polilínea, círculo, arco, texto y los 2 del bloque) → ' + r.objs.length);
+  ok(!r.error && r.objs.length === 9, 'lee el archivo: 9 objetos (punto, línea, polilínea, círculo, arco, 2 textos y los 2 del bloque) → ' + r.objs.length);
   const pto = r.objs.find(o => o.t === 'p');
   ok(pto && casi(pto.x, 1000.5) && casi(pto.y, 2000.25) && casi(pto.z, 1501.2) && pto.d === 'TN' && pto.col === '#16A34A',
     'el punto trae Este 1000.5, Norte 2000.25, cota 1501.2, descripción TN y el verde de su capa');
@@ -68,6 +69,36 @@ const DXF = ['0','SECTION','2','HEADER','9','$ACADVER','1','AC1015','0','ENDSEC'
   ok(salta('HATCH') === 1 && salta('DIMENSION') === 1 && salta('SPLINE') === 1 && r.saltados.length === 3,
     'dice qué no se trajo: 1 sombreado, 1 cota de AutoCAD y 1 spline');
   ok(r.capas.length === 2 && r.capas.every(c => c.n > 0), 'lista las capas que de verdad trajeron objetos: ' + r.capas.map(c => c.nombre + ':' + c.n).join(', '));
+
+  // ── texto centrado: su posición de verdad va en el grupo 11, no en el 10 (arreglo 3 de la auditoría) ──
+  const cen = r.objs.find(o => o.t === 'tx' && o.s === 'CENTRADO');
+  ok(cen && casi(cen.p.x, 1060) && casi(cen.p.y, 1990),
+    'un texto centrado cae donde va, no en el (0,0) del grupo 10: (' + (cen ? cen.p.x + ', ' + cen.p.y : '?') + ')');
+
+  // ── unidades del archivo (arreglo 2): en milímetros entraría 1000 veces más grande ──
+  const uni = await p.evaluate(() => {
+    const hacer = ins => ['0','SECTION','2','HEADER','9','$ACADVER','1','AC1015','9','$INSUNITS','70',String(ins),'0','ENDSEC',
+      '0','SECTION','2','ENTITIES','0','LINE','8','0','10','0.0','20','0.0','11','5000.0','21','0.0','0','ENDSEC','0','EOF'].join('\r\n');
+    const sinCab = ['0','SECTION','2','ENTITIES','0','LINE','8','0','10','0.0','20','0.0','11','5.0','21','0.0','0','ENDSEC','0','EOF'].join('\r\n');
+    return { mm: leerDXF(hacer(4), 1).unidades, m: leerDXF(hacer(6), 1).unidades, cero: leerDXF(hacer(0), 1).unidades, nada: leerDXF(sinCab, 1).unidades };
+  });
+  ok(uni.mm && uni.mm.nombre === 'milímetros' && casi(uni.mm.factor, 0.001) && uni.mm.conocida === true,
+    'reconoce que el archivo está en milímetros y que hay que multiplicar por 0.001');
+  ok(uni.m && casi(uni.m.factor, 1) && uni.cero && uni.cero.conocida === false && uni.nada === null,
+    'en metros no cambia nada; "sin unidad" y un archivo sin encabezado se tratan como metros y se avisa');
+
+  // ── 1. un DXF grande se lee rápido (antes era cuadrático: 2 MB tardaba 2 segundos) ──
+  const vel = await p.evaluate(() => {
+    const L = ['0','SECTION','2','ENTITIES'];
+    for (let i = 0; i < 20000; i++) L.push('0','POINT','8','TN','10',String(1000 + i * 0.1),'20','2000','30','1500');
+    for (let i = 0; i < 3000; i++) { L.push('0','POLYLINE','8','B','66','1','70','0');
+      for (let j = 0; j < 8; j++) L.push('0','VERTEX','8','B','10',String(i + j * 0.5),'20',String(j));
+      L.push('0','SEQEND','8','B'); }
+    L.push('0','ENDSEC','0','EOF');
+    const t = L.join('\r\n'), t0 = performance.now(), rr = leerDXF(t, 1);
+    return { mb: +(t.length / 1048576).toFixed(2), objs: rr.objs.length, ms: Math.round(performance.now() - t0) };
+  });
+  ok(vel.objs === 23000 && vel.ms < 900, 'un DXF de ' + vel.mb + ' MB con 3000 polilíneas se lee en ' + vel.ms + ' ms (antes 1971 ms)');
 
   // ── 2. ida y vuelta con nuestro propio DXF ──
   const ida = await p.evaluate(() => {
@@ -110,10 +141,12 @@ const DXF = ['0','SECTION','2','HEADER','9','$ACADVER','1','AC1015','0','ENDSEC'
   ok(/EJE 3\.dxf/.test(panel) && /SE VA A DIBUJAR/.test(panel), 'la revisión muestra el nombre del archivo y lo que se va a dibujar');
   ok(/Polil[ií]neas\s*1/.test(panel) && /trae curvas y se conservan/.test(panel), 'avisa que la polilínea trae curvas y se conservan');
   ok(/NO SE TRAE/.test(panel) && /Sombreados\s*1/.test(panel) && /Cotas de AutoCAD\s*1/.test(panel), 'la revisión dice qué no se trae, con nombres en español');
-  ok(/TN · 4/.test(panel) && /BORDE · 4/.test(panel), 'muestra las capas con cuántos objetos trae cada una');
+  ok(/TN · 5/.test(panel) && /BORDE · 4/.test(panel), 'muestra las capas con cuántos objetos trae cada una');
+  // la casilla de unidades solo sale si el archivo está en otra unidad; este viene sin encabezado
+  ok(/no dice en qué unidad está/.test(panel), 'si el archivo no dice la unidad, el panel lo advierte');
   await p.click('.mc-dxf-aqui'); await p.waitForTimeout(700);
   const dentro = await p.evaluate(() => { vaciarGuardado(); return JSON.parse(localStorage.getItem('minicivil'))[0].dibujos[0].objs; });
-  ok(dentro.length === 8 && dentro.some(o => o.t === 'pl' && o.v[0].b) && dentro.some(o => o.t === 'ar'),
+  ok(dentro.length === 9 && dentro.some(o => o.t === 'pl' && o.v[0].b) && dentro.some(o => o.t === 'ar'),
     'queda dibujado en el dibujo: ' + dentro.length + ' objetos, con la curva y el arco');
   ok(!(await p.$('.tv-dib-dxf')), 'el panel se cierra al dibujar');
   await p.evaluate(() => deshacer()); await p.waitForTimeout(400);

@@ -48,7 +48,7 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 
 ## Al publicar (solo cuando Brian lo autorice)
 - Subir `TV_VERSION` en index.html, `CACHE_VERSION` en sw.js (ej. "2" y "minicivil-v2") y la versión del
-  `<title>` (hoy "Mini Civil v31").
+  `<title>` (hoy "Mini Civil v32").
 - `node pruebas/sintaxis.js` (sintaxis de cada `<script>` y versión igual en los dos archivos; corre también en
   GitHub en cada push a `main`, `.github/workflows/sintaxis.yml`).
 - Batería completa: `node pruebas/correr.js` (34 pruebas en PC, celular y tablet, también sin conexión con servidor real; `SOLO=nombre` corre algunas). Rápidas: `node pruebas/abrir.js` y `W=390 node pruebas/abrir.js` (PC y celular); `node pruebas/importar.js` si se tocaron los puntos o el DXF; `node pruebas/nube.js` si se tocó Drive o los datos.
@@ -73,6 +73,36 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 | PROYECTOS (Mini Civil) | **Espacio en el celular (v26)**: en la pestaña Dibujo no se dibuja `mc-barra-proy`; el botón de volver (`mc-volver`, solo la flecha) y `tv-acciones` (tema, Drive, guardado) van dentro de la fila del dibujo (`mc-barra-dib`), que `App` le pasa a `TabDibujo` en el prop `cabecera`. En las otras pestañas la fila sigue igual. En el Dibujo, nuevo/renombrar/duplicar/borrar/importar/tabla/DXF se fueron al menú `⋯` (`mc-mas`, panel `tv-dib-mas`, botones `mc-mas-*`), y la franja de comando `tv-dib-cmd` flota sobre el lienzo (`position: absolute`, ancho al contenido, `pointer-events: none` salvo en sus botones por la regla del `<style>`; se parte en varias líneas si hay muchos botones). El lienzo pasa de 479 a 601 px en el celular (del 57 % al 71 % de la pantalla). `proyectoNuevo` (`{ id, nombre, creado, dibujos }`), `useLocalProyectos` (guarda en `TV_KEY`, con deshacer), `copiaDeProyectos` (para `FalloApp`), `Logo`, `TarjetaNube`, `PantallaProyectos`, `App` (inicio = lista de proyectos; proyecto = pestañas `nav.tab`: Dibujo, Superficies…; desde la v22, dentro de un proyecto NO se dibuja la barra `tv-header`: el tema, Drive y el estado de guardado van en la fila del proyecto `mc-barra-proy`, y `tv-main` lleva `mc-sin-barra` para el margen de la franja de estado del celular. En el inicio la barra con el logo sigue), `FalloApp`, arranque y aviso de versión nueva |
 
 ## Estado y lo que sigue
+- Versión 32 (2026-10-23, auditoría `/ponytail-audit` del 2026-10-23 sobre la v31; Brian: "arregla todo"): **12 de los 13
+  hallazgos**. El que queda (las líneas y figuras siguen siendo elementos del SVG) va en la v33, porque es estructural.
+  (1) **Leer un DXF grande era cuadrático**: la rama POLYLINE le pasaba una copia del resto del archivo a `hacer` por cada
+  polilínea (`lista.slice(i + 1)`). Ahora recibe la lista y el índice. Medido: 2 MB con 3000 polilíneas de **1971 ms a 455 ms**;
+  4 MB ya no se va a 6,8 s. Además el archivo se lee **fuera del dibujado de la pantalla** (antes `leerDXF` corría dentro del
+  render): `leerArchivo` pone `dxfIn = { leyendo: true, kb }`, muestra "Leyendo el archivo…" y a los 40 ms guarda el resultado
+  en `dxfIn.r`; se quitó `LECTURA_DXF`. (2) **Unidades**: `DXF_UNIDAD` y la lectura de `$INSUNITS` del encabezado; un archivo
+  en milímetros (una línea de 5000 mm entraba como 5000 m) ahora lo dice y ofrece la casilla "pasarlo a metros" (marcada por
+  defecto); `dibujarDXF(r, destino, factor)` multiplica coordenadas y radios (la curvatura no, no tiene unidad). Sin encabezado
+  o con "sin unidad" avisa que se lee como metros. (3) **Texto centrado**: si viene el grupo 72, 73 o un 71 mayor que 1, la
+  posición de verdad es el **grupo 11**, no el 10 (antes todos los textos centrados caían en el 0,0). (5) La herramienta
+  **Medir → Área** da lo mismo que el panel de Elegir en una figura con lados curvos (`resArea(v, o)` usa `areaObj`/`largoObj`):
+  antes 100 m² y 117,472 m² para la misma figura. (6) **`verticesDe`** devuelve `DIB.puntos(o)` para una polilínea: las
+  secciones, el perfil, el límite de una superficie y las líneas de quiebre ya siguen la curva y no la cuerda. (7) **"Usar como
+  eje"** con curvas pregunta antes y pasa la forma partida en tramos (el eje no guarda curvatura), y lo dice. (8) **La pieza
+  pegada gira de verdad**: guarda `ang` (radianes, contra el reloj), `transformar` lo suma, `DIB.esquinasPz` da las cuatro
+  esquinas giradas (las usan `extremos` y `caja`), en pantalla se dibuja con `rotate(-ang)` (la Y de la pantalla va al revés) y
+  en el DXF las coordenadas se giran; el panel muestra "Girada N°" y "↺ Ponerla derecha". (9) **Los imanes vivos descartan por
+  la caja** antes de partir los arcos: de **11,3 ms a 0,8 ms** por movimiento del ratón con 3000 polilíneas curvas.
+  (10) Pruebas nuevas de todo lo anterior en `leerdxf.js`, `arcos.js` y `piezas.js`. (11) Código muerto borrado:
+  `DXF_CONOCIDAS`, `dxfOp`/`setDxfOp`, `LECTURA_DXF` y la `Y` repetida de `hacer`. (12) El color se mira **después** de saber
+  que el tipo se conoce (antes el aviso "N objetos con un color que no manejo" contaba objetos que ni se importaban).
+  (13) Una **lente** (polilínea de 2 vértices cerrada con curvatura en los dos lados, común en un DXF) ahora cierra:
+  `DIB.cerrada` y `segmentos` la aceptan; mide 78,540 m² (dos semicírculos de radio 5), antes solo la mitad.
+  **Fallo extra que destapó el arreglo 9 y que la auditoría no vio**: la **caja de una polilínea con lados curvos no cubría el
+  arco** (solo los vértices), así que el arco se salía de su caja: no se pintaba al recortar la vista, "Ver todo" lo dejaba
+  afuera y los imanes no lo veían. `DIB.extremosArco(a, b, bul)` da la caja del arco en 4 cuentas (los puntos del círculo a 0°,
+  90°, 180° y 270° que caen dentro del barrido), sin partirlo, y `DIB.caja` la usa. Comprobado que da lo mismo que la cuenta
+  fina. **Comprobado aparte**: el DXF de un dibujo con 14 objetos de todos los tipos y sin curvas sigue saliendo **idéntico
+  byte por byte** al de la v31 (21 309 bytes). Batería: 34 de 34.
 - Versión 31 (2026-10-23, Brian: "dale con la v31", mismo boceto https://claude.ai/artifact/QEwqHBvY8bcxzgzxHDYNxv):
   **importar DXF**. `leerDXF(texto, sig)` (sección LEER DXF, antes de IMPORTAR PUNTOS) lee un .dxf de texto a mano, sin
   librerías: arma las parejas (código, valor) y las agrupa por el código 0; si una línea de código no es número, la salta para
@@ -264,7 +294,7 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 - Versión 12 (2026-10-23, Brian: "fijos en pantalla"): en el Dibujo los puntos y los textos ya no crecen ni se encogen mientras se acerca o aleja (antes se veían así hasta soltar, porque el gesto agranda la imagen ya pintada). Siguiente (boceto aprobado https://claude.ai/artifact/JNTwQqdoa1X2NoKX8tvyn6): superficie dentro del Dibujo, etapa 2D (ver y editar triángulos: quitar, voltear lado, unir dos puntos, devolver) y luego 3D en el mismo panel.
 - Versión 11 (2026-10-22, Brian aprobó el boceto y "empieza la primera etapa"): pestaña Presentación, etapa 1: hoja carta horizontal o vertical (los demás tamaños se ven como "pronto"), 5 plantillas de rótulo con datos del proyecto y logos, ventanas al dibujo a escala, secciones, tabla de volúmenes, varias hojas y PDF de todas. `Btn` acepta `className` y `aria-label`. Pendiente (etapas siguientes): más tamaños de hoja, cuadro de coordenadas, textos sueltos, girar la ventana, rótulo propio de Brian (plantilla 6).
 - Versión 10 (2026-10-22, Brian: "quiero arreglar todo" lo de la auditoría de la v9): proyecto grande solo en IndexedDB (no llena el localStorage de TopoVías); tope de 2000 secciones con aviso; aviso de puntos repetidos con otra cota y de puntos en línea recta; áreas de la sección desde los polígonos que se pintan; al borrar una superficie del volumen pide elegir de nuevo; leyenda del PDF en varias líneas; sección a la mitad del ángulo en un vértice; varias líneas de título al importar; la lectura del archivo se guarda (`LECTURA_IMP`); quitado `BloqueoCtx`. Pruebas nuevas en `superficies.js` (también elegir quiebre y límite en pantalla) e `importar.js`; las nuevas fallan con la v9 y pasan con la v10.
-- Auditoría con /ponytail-audit: 2026-10-23 (v17): 2 fallos de datos (los selectores de superficie), 2 arreglos de fondo y 3 mejoras; todo se arregló en la v18. Antes: 2026-10-22 (v9), arreglado en la v10.
+- Auditoría con /ponytail-audit: 2026-10-23 (v31): 4 fallos de datos o de carga (DXF grande cuadrático, unidades, texto centrado, líneas en el SVG), 5 que deberíamos arreglar y 4 pequeños. Los 12 primeros se arreglaron en la v32; el de las líneas en el SVG, en la v33. Antes: 2026-10-23 (v17): 2 fallos de datos (los selectores de superficie), 2 arreglos de fondo y 3 mejoras; todo se arregló en la v18. Antes: 2026-10-22 (v9), arreglado en la v10.
 - Versión 9 (2026-10-22): batería completa (`correr.js`, `sinconexion.js`) y arreglo: Volúmenes avisa si la línea de las secciones se borró del dibujo. Probado además con 7.000 puntos (TIN 29 ms, 38 secciones 81 ms, mallas 43 ms, cada pestaña abre en menos de 0.2 s en el celular) y en tema oscuro.
 - Versión 8 (2026-10-22): "Informe PDF" en Volúmenes (jsPDF incrustado). Revisado por páginas con pdftoppm: nada se sale de su casilla.
 - Versión 7 (2026-10-22): pestañas Secciones (sobre una línea, eje o polilínea del dibujo; cada 5/10/20/otro m; ancho a cada lado; la abscisa del eje si la línea es un eje) y Volúmenes (por secciones con la tabla que cuadra con las secciones, y por mallas como principal o para comparar). Pestañas del proyecto con ícono arriba para que quepan las cuatro en el celular.
