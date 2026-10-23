@@ -5211,19 +5211,34 @@ function crearInformePDF(proy, R, V, mallas, cfg) {
 // El Dibujo es el modelo (coordenadas reales); aquí se arman hojas a escala que salen en un PDF.
 // proy.presentacion = { datos: { empresa, proyecto, localizacion, contrato, objeto, cliente, notas, elaboro, cargoElaboro,
 //     reviso, cargoReviso, aprobo, cargoAprobo, logo, logoAR, logo2, logo2AR }   (los del rótulo, una vez por proyecto)
-//   hojas: [{ id, nombre, tam: "carta", orient: "h"|"v", plantilla: 1..5, contenido, fecha, revision, escala (texto; vacío = el de las ventanas),
+//   hojas: [{ id, nombre, tam: "carta"|"oficio"|"doble"|"a4"|"a3"|"a2"|"a1"|"a0"|"pliego", orient: "h"|"v", plantilla: 1..5, contenido, fecha, revision, escala (texto; vacío = el de las ventanas),
 //     piezas: [{ id, t: "ventana"|"secciones"|"tabla", x, y, w, h (mm en la hoja), … }] }] }
 //   ventana:   { dibId, cx, cy (centro en el terreno), escala: "500", curvas: [id de superficie], cortes, norte, barra }
 //   secciones: { desde: 1, cols: 2, filas: 2 }      tabla: { desde: 1 }
 // Todo se arma en mm con unas pocas piezas básicas (`prims`: línea, texto, círculo, imagen, grupo recortado). La pantalla (SVG)
 // y el PDF dibujan las mismas: lo que se ve en la hoja es lo que sale. `pantalla: true` = solo en pantalla (textos guía del rótulo).
-const HOJA_TAM = { carta: { nombre: "Carta", w: 215.9, h: 279.4 } };
-const HOJA_TAM_PRONTO = ["Oficio", "A4", "Doble carta", "Pliego 70×100"];
+// tamaños de hoja (mm, de pie: w = ancho, h = alto). "horizontal" los voltea en `tamHoja`
+const HOJA_TAM = { carta: { nombre: "Carta", w: 215.9, h: 279.4 }, oficio: { nombre: "Oficio", w: 215.9, h: 355.6 }, doble: { nombre: "Doble carta", w: 279.4, h: 431.8 },
+  a4: { nombre: "A4", w: 210, h: 297 }, a3: { nombre: "A3", w: 297, h: 420 }, a2: { nombre: "A2", w: 420, h: 594 }, a1: { nombre: "A1", w: 594, h: 841 },
+  a0: { nombre: "A0", w: 841, h: 1189 }, pliego: { nombre: "Pliego 70×100", w: 700, h: 1000 } };
+const HOJA_ORDEN = ["carta", "oficio", "doble", "a4", "a3", "a2", "a1", "a0", "pliego"];
 const HOJA_MARGEN = 10, PT = 0.3528;   // PT = un punto tipográfico en mm
 const ESCALAS = ["100", "200", "250", "500", "750", "1000", "1250", "1500", "2000", "2500", "5000", "10000"];
 const PLANTILLAS = [[1, "Franja inferior"], [2, "Cajetín a la derecha"], [3, "Cuadro en la esquina"], [4, "Obra con interventoría"], [5, "Informe técnico"]];
 const LETRA_HOJA = "Helvetica, Arial, 'Liberation Sans', sans-serif";
 const tamHoja = hoja => { const t = HOJA_TAM[hoja.tam] || HOJA_TAM.carta; return hoja.orient === "v" ? { w: t.w, h: t.h } : { w: t.h, h: t.w }; };
+// En una hoja grande el rótulo crece con ella: si no, en un A0 el cajetín de una carta se vería como un sello. Crece con la raíz
+// del ancho (carta y A4 = 1; A1 = 1,73; A0 = 2,06), para que no se coma el plano. El rótulo se arma como si la hoja fuera carta y
+// después se multiplica todo (medidas, grosores y tamaño de letra) por este número.
+const kRotulo = T => Math.min(2.5, Math.max(1, Math.round(Math.sqrt(T.w / 279.4) * 100) / 100));
+const escalarPrims = (lista, k) => lista.map(p => {
+  if (p.k === "l") return { ...p, pts: p.pts.map(([x, y]) => [x * k, y * k]), w: (p.w || 0) * k, guion: p.guion ? p.guion.map(v => v * k) : p.guion };
+  if (p.k === "t") return { ...p, x: p.x * k, y: p.y * k, pt: (p.pt || 7) * k };
+  if (p.k === "c") return { ...p, x: p.x * k, y: p.y * k, r: p.r * k, w: (p.w || 0) * k };
+  if (p.k === "img") return { ...p, x: p.x * k, y: p.y * k, w: p.w * k, h: p.h * k };
+  if (p.k === "g") return { ...p, dx: p.dx * k, dy: p.dy * k, hijos: escalarPrims(p.hijos, k), clip: p.clip ? { w: p.clip.w * k, h: p.clip.h * k } : p.clip };
+  return p;
+});
 // medidas de texto con las mismas letras del PDF (Helvetica), para cortar lo que no cabe igual en pantalla y en el PDF
 let MEDIDOR = null;
 const medidor = (pt, b) => { if (!MEDIDOR) MEDIDOR = new window.jspdf.jsPDF({ unit: "mm" }); MEDIDOR.setFont("helvetica", b ? "bold" : "normal"); MEDIDOR.setFontSize(pt); return MEDIDOR; };
@@ -5306,8 +5321,15 @@ const escalaHoja = hoja => {
   return l.length === 1 ? "1:" + l[0] : l.length > 1 ? "Indicada" : "";
 };
 // Rótulo de una hoja: { prims, area } (area = el espacio que deja para el dibujo, en mm)
+// el rótulo se arma sobre una hoja reducida (como si fuera carta) y luego se agranda entero: así se ve igual en cualquier tamaño
 function rotuloHoja(proy, hoja, num, total) {
-  const T = tamHoja(hoja), m = HOJA_MARGEN, d = (proy.presentacion || {}).datos || {}, pr = [];
+  const Treal = tamHoja(hoja), k = kRotulo(Treal);
+  const r = rotuloBase(proy, hoja, num, total, k === 1 ? Treal : { w: Treal.w / k, h: Treal.h / k });
+  if (k === 1) return r;
+  return { prims: escalarPrims(r.prims, k), area: { x: r.area.x * k, y: r.area.y * k, w: r.area.w * k, h: r.area.h * k } };
+}
+function rotuloBase(proy, hoja, num, total, T) {
+  const m = HOJA_MARGEN, d = (proy.presentacion || {}).datos || {}, pr = [];
   const X0 = m, Y0 = m, IW = T.w - 2 * m, IH = T.h - 2 * m, n = hoja.plantilla || 1;
   const esc = escalaHoja(hoja), cont = hoja.contenido, fecha = hoja.fecha, hojaTxt = num + "/" + total;
   const c = (x, y, w, h, tit, val, guia, o) => celdaRot(pr, x, y, w, h, tit, val, guia, o);
@@ -5588,7 +5610,7 @@ function TabPresentacion({ proy, onPres, onArchivo }) {
   const campo = (lbl, val, fn, ph, cls) => h("label", { style: { display: "flex", flexDirection: "column", gap: 3, fontSize: 12.5, color: C.muted, fontWeight: 700 } }, lbl,
     h(Input, { value: val == null ? "" : val, onChange: e => fn(e.target.value), placeholder: ph, className: cls }));
   if (!hoja) return h("div", { className: "mc-presentacion" }, h(Card, { title: "Presentación" },
-    h("div", { style: { fontSize: 13.5, color: C.text, lineHeight: 1.6, marginBottom: 12 } }, "Aquí se arman las hojas que se exportan: una hoja carta con su rótulo, ventanas al dibujo a escala, secciones y la tabla de volúmenes. Lo que ves en la hoja es lo que sale en el PDF."),
+    h("div", { style: { fontSize: 13.5, color: C.text, lineHeight: 1.6, marginBottom: 12 } }, "Aquí se arman las hojas que se exportan: cada hoja (carta, oficio, A4 a A0, doble carta o pliego) con su rótulo, ventanas al dibujo a escala, secciones y la tabla de volúmenes. Lo que ves en la hoja es lo que sale en el PDF."),
     h(Btn, { color: C.accent, onClick: nueva, className: "mc-hoja-nueva" }, "＋ Crear la primera hoja")));
   const T = tamHoja(hoja), rot = rotuloHoja(proy, hoja, idx + 1, hojas.length), anchoSvg = Math.max(200, (ancho - 2) * zoom), pxmm = anchoSvg / T.w;
   const piezas = (hoja.piezas || []).map(pz => arr && arr.id === pz.id ? arr.actual : pz), pzSel = piezas.find(p => p.id === sel);
@@ -5666,7 +5688,8 @@ function TabPresentacion({ proy, onPres, onArchivo }) {
       h(Card, { title: "Hoja" },
         campo("Nombre de la hoja", hoja.nombre, v => setHoja({ nombre: v }), "Hoja " + (idx + 1), "mc-hoja-nombre"),
         tit("TAMAÑO"),
-        h("div", { style: { display: "flex", gap: 6, flexWrap: "wrap" } }, boton("Carta", true, () => {}, "carta"), HOJA_TAM_PRONTO.map(t => boton(t, false, () => {}, t, { disabled: true, title: "Pronto" }))),
+        h("div", { style: { display: "flex", gap: 6, flexWrap: "wrap" } }, HOJA_ORDEN.map(t => boton(HOJA_TAM[t].nombre, (hoja.tam || "carta") === t, () => (hoja.tam || "carta") !== t && setForma({ tam: t }), t,
+          { className: "mc-tam", title: HOJA_TAM[t].w + " × " + HOJA_TAM[t].h + " mm" }))),
         tit("ORIENTACIÓN"),
         h("div", { style: { display: "flex", gap: 6 } }, boton("Horizontal", hoja.orient !== "v", () => hoja.orient === "v" && setForma({ orient: "h" }), "h", { className: "mc-orient-h" }), boton("Vertical", hoja.orient === "v", () => hoja.orient !== "v" && setForma({ orient: "v" }), "v", { className: "mc-orient-v" })),
         tit("RÓTULO (PLANTILLA)"),
