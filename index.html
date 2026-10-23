@@ -2325,7 +2325,7 @@ function TabDibujo({ proy, onChange, onArchivo, onSupers }) {
   const capaCache = React.useRef({}), ruedaT = React.useRef(null);
   const capaGRef = React.useRef(null);   // grupo con todo lo dibujado (Mini Civil: el gesto lo mueve a él, no a la imagen del svg)
   // Mini Civil: mientras el dedo o la rueda mueven la vista se vuelve a pintar el dibujo entero, un repintado por cuadro de pantalla
-  // (requestAnimationFrame). Antes se movia y escalaba el grupo ya pintado con un transform: en celulares y tablets el navegador no
+  // (requestAnimationFrame). Antes se movía y escalaba el grupo ya pintado con un transform: en celulares y tablets el navegador no
   // siempre repintaba esa zona y quedaban restos de la imagen anterior, que solo se iban con "Regenerar imagen" (Brian, v16).
   const rafRef = React.useRef(0);
   const moverVista = v => {
