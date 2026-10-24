@@ -60,6 +60,15 @@ const path = require('path');
   await irA('superficies', 'editar');
   const gs = await p.$$eval('.tv-dib-nav button[data-grupo]', bs => bs.map(x => x.dataset.grupo));
   ok(gs.join() === 'superficie,dibujar' && /QUITAR TRIÁNGULO/.test(await p.textContent('.tv-dib-cmd')), 'Superficies → Editar: grupos Triángulos y Dibujar, y arranca en Quitar triángulo');
+  // auditoría v39: con el 3D abierto, Retroceso no borra lo que quedó elegido en el 2D
+  await p.click('.tv-dib-nav button[data-grupo=dibujar]'); await p.click('.tv-dib-hoja button[data-herr=elegir]'); await p.waitForTimeout(150);
+  const q = await p.evaluate(() => { const r = document.querySelector('.tv-dib-svg').getBoundingClientRect(), a = MC_DIB.aP({ x: 30, y: 40 }); return { x: r.left + a.X, y: r.top + a.Y }; });
+  if (movil) await p.touchscreen.tap(q.x, q.y); else await p.mouse.click(q.x, q.y); await p.waitForTimeout(300);
+  const nObj = () => p.evaluate(() => HIST.actual.proyectos[0].dibujos[0].objs.length), n0 = await nObj();
+  ok(!!(await p.$('.tv-dib-panel')), 'en Editar se elige un punto');
+  await p.click('[data-vista="3d"]'); await p.waitForTimeout(400);
+  await p.keyboard.press('Backspace'); await p.waitForTimeout(300);
+  ok(await nObj() === n0, 'en el 3D, Retroceso no borra el punto elegido en el 2D (' + n0 + ' → ' + await nObj() + ')');
   if (movil) ok(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'sin desplazamiento de lado en celular');
   ok(!errs.length, 'sin errores' + (errs.length ? ': ' + errs.join(' | ') : ''));
   await b.close();

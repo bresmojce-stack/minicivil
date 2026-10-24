@@ -48,7 +48,7 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 
 ## Al publicar (solo cuando Brian lo autorice)
 - Subir `TV_VERSION` en index.html, `CACHE_VERSION` en sw.js (ej. "2" y "minicivil-v2") y la versión del
-  `<title>` (hoy "Mini Civil v39").
+  `<title>` (hoy "Mini Civil v40").
 - `node pruebas/sintaxis.js` (sintaxis de cada `<script>` y versión igual en los dos archivos; corre también en
   GitHub en cada push a `main`, `.github/workflows/sintaxis.yml`).
 - Batería completa: `node pruebas/correr.js` (46 pruebas en PC, celular y tablet, también sin conexión con servidor real; `SOLO=nombre` corre algunas). Rápidas: `node pruebas/abrir.js` y `W=390 node pruebas/abrir.js` (PC y celular); `node pruebas/importar.js` si se tocaron los puntos o el DXF; `node pruebas/nube.js` si se tocó Drive o los datos.
@@ -73,6 +73,13 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 | PROYECTOS (Mini Civil) | **Espacio en el celular (v26)**: en la pestaña Dibujo no se dibuja `mc-barra-proy`; el botón de volver (`mc-volver`, solo la flecha) y `tv-acciones` (tema, Drive, guardado) van dentro de la fila del dibujo (`mc-barra-dib`), que `App` le pasa a `TabDibujo` en el prop `cabecera`. En las otras pestañas la fila sigue igual. En el Dibujo, nuevo/renombrar/duplicar/borrar/importar/tabla/DXF se fueron al menú `⋯` (`mc-mas`, panel `tv-dib-mas`, botones `mc-mas-*`), y la franja de comando `tv-dib-cmd` flota sobre el lienzo (`position: absolute`, ancho al contenido, `pointer-events: none` salvo en sus botones por la regla del `<style>`; se parte en varias líneas si hay muchos botones). El lienzo pasa de 479 a 601 px en el celular (del 57 % al 71 % de la pantalla). `proyectoNuevo` (`{ id, nombre, creado, dibujos }`), `useLocalProyectos` (guarda en `TV_KEY`, con deshacer), `copiaDeProyectos` (para `FalloApp`), `Logo`, `TarjetaNube`, `PantallaProyectos`, `App` (inicio = lista de proyectos; proyecto = pestañas `nav.tab`: Dibujo, Superficies…; desde la v22, dentro de un proyecto NO se dibuja la barra `tv-header`: el tema, Drive y el estado de guardado van en la fila del proyecto `mc-barra-proy`, y `tv-main` lleva `mc-sin-barra` para el margen de la franja de estado del celular. En el inicio la barra con el logo sigue), `FalloApp`, arranque y aviso de versión nueva |
 
 ## Estado y lo que sigue
+- Versión 40 (2026-10-24, `/ponytail-audit` sobre la v39; Brian: "arregla todo, lo necesario"): 4 hallazgos, los 4 arreglados.
+  (1) Con el 3D abierto seguían activas las teclas del lienzo 2D: Retroceso borraba lo que había quedado elegido en Editar sin
+  verse (reproducido: 3 → 2 objetos). Los dos escuchadores de `TabDibujo` no hacen nada si `modo3d`; prueba en `barra.js` (falla
+  con la v39). (2) En Superficies no sale "Tomar cota" en la barra rápida (allí siempre toma la cota). (3) `Vista3D` sin el prop
+  `incrustado` (ya solo va dentro del lienzo). (4) Borradas ~45 líneas de estilo de TopoVías sin uso (`tv-subvia`, `tv-tabs`,
+  `tv-punto-*`, `tv-lect`, `tv-calc-*`, `tv-bloqueada`, `tv-volver`…), con la regla repetida que venía de la v35. DXF idéntico
+  byte por byte (6 874 bytes). Batería: 46 de 46. Última auditoría: 2026-10-24 (v39).
 - Versión 39 (2026-10-24, boceto aprobado https://claude.ai/artifact/D672C9hD4wNjkNQwo5o6De): **módulo de Superficies**. La
   pestaña Superficies tiene tres vistas (`mc-sup-vistas`, botones `data-vista`, localStorage `minicivil_supvista`): **Planta** (lo
   de siempre, con el editor de cada superficie: ajustes y "Llevar al DXF"), **Editar** y **3D**. Editar es el mismo `TabDibujo`
