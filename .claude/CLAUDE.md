@@ -48,10 +48,10 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 
 ## Al publicar (solo cuando Brian lo autorice)
 - Subir `TV_VERSION` en index.html, `CACHE_VERSION` en sw.js (ej. "2" y "minicivil-v2") y la versión del
-  `<title>` (hoy "Mini Civil v40").
+  `<title>` (hoy "Mini Civil v41").
 - `node pruebas/sintaxis.js` (sintaxis de cada `<script>` y versión igual en los dos archivos; corre también en
   GitHub en cada push a `main`, `.github/workflows/sintaxis.yml`).
-- Batería completa: `node pruebas/correr.js` (46 pruebas en PC, celular y tablet, también sin conexión con servidor real; `SOLO=nombre` corre algunas). Rápidas: `node pruebas/abrir.js` y `W=390 node pruebas/abrir.js` (PC y celular); `node pruebas/importar.js` si se tocaron los puntos o el DXF; `node pruebas/nube.js` si se tocó Drive o los datos.
+- Batería completa: `node pruebas/correr.js` (48 pruebas en PC, celular y tablet, también sin conexión con servidor real; `SOLO=nombre` corre algunas). Rápidas: `node pruebas/abrir.js` y `W=390 node pruebas/abrir.js` (PC y celular); `node pruebas/importar.js` si se tocaron los puntos o el DXF; `node pruebas/nube.js` si se tocó Drive o los datos.
 - Commit con `git -c user.email=bresmojce@gmail.com -c user.name=bresmojce-stack commit`, push a `main`.
 
 ## Mapa del código (buscar por el comentario de sección `// ───`)
@@ -73,6 +73,28 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 | PROYECTOS (Mini Civil) | **Espacio en el celular (v26)**: en la pestaña Dibujo no se dibuja `mc-barra-proy`; el botón de volver (`mc-volver`, solo la flecha) y `tv-acciones` (tema, Drive, guardado) van dentro de la fila del dibujo (`mc-barra-dib`), que `App` le pasa a `TabDibujo` en el prop `cabecera`. En las otras pestañas la fila sigue igual. En el Dibujo, nuevo/renombrar/duplicar/borrar/importar/tabla/DXF se fueron al menú `⋯` (`mc-mas`, panel `tv-dib-mas`, botones `mc-mas-*`), y la franja de comando `tv-dib-cmd` flota sobre el lienzo (`position: absolute`, ancho al contenido, `pointer-events: none` salvo en sus botones por la regla del `<style>`; se parte en varias líneas si hay muchos botones). El lienzo pasa de 479 a 601 px en el celular (del 57 % al 71 % de la pantalla). `proyectoNuevo` (`{ id, nombre, creado, dibujos }`), `useLocalProyectos` (guarda en `TV_KEY`, con deshacer), `copiaDeProyectos` (para `FalloApp`), `Logo`, `TarjetaNube`, `PantallaProyectos`, `App` (inicio = lista de proyectos; proyecto = pestañas `nav.tab`: Dibujo, Superficies…; desde la v22, dentro de un proyecto NO se dibuja la barra `tv-header`: el tema, Drive y el estado de guardado van en la fila del proyecto `mc-barra-proy`, y `tv-main` lleva `mc-sin-barra` para el margen de la franja de estado del celular. En el inicio la barra con el logo sigue), `FalloApp`, arranque y aviso de versión nueva |
 
 ## Estado y lo que sigue
+- Versión 41 (2026-10-24, Brian: "si sabes que algo falta, agrégalo" antes de abrir DWG): **el lector de planos trae lo que
+  faltaba** (sirve para DXF y, desde la v42, para DWG). En `leerDXF`: **cotas** (`DIMENSION` = su bloque `*D…` ya dibujado, contado
+  en `resumen.COTA`; los puntos de la capa DEFPOINTS no entran), **sombreados** (`HATCH`: cada borde —polilínea, líneas, arcos,
+  elipses, splines por sus puntos de control— como figura cerrada `som: "rayado"` o `"relleno"` si es sólido), **elipses** (polilínea
+  por `curva`), **directrices** (`LEADER` y `MULTILEADER`: líneas + texto), **SOLID** (las flechas, relleno en orden 1-2-4-3),
+  **3DFACE** (contorno con cotas), **tipo de línea** (por objeto o por capa → `tipo` de `DIB_LINEAS` con `tipoDeLT`), **textos con
+  tamaño**: el `tx` guarda `h` (alto en m), `rot` (radianes) y `al` (l/c/r + b base, d abajo, m medio, t arriba; `textoDe`),
+  en pantalla escala con el zoom y no se pinta si mide menos de 2,5 px; nuestro DXF los escribe con su alto, giro y alineación;
+  los `tx` sin `h` (los de la app) siguen iguales. **Atributos** que no son de punto se ven como texto; `ATTDEF` no se dibuja.
+  **Bloques en espejo o estirados** (antes se saltaban: "BLOQUE ESTIRADO"): escala X e Y aparte; sus círculos y arcos pasan a
+  polilínea. **Objetos en otro plano** (210/220/230, `planoDe`/`alPlano`, regla del eje arbitrario de AutoCAD) para LWPOLYLINE,
+  POLYLINE, CIRCLE, ARC, TEXT, HATCH, SOLID e INSERT (antes un plano en espejo o una vista vertical caía en otro sitio). Fallo viejo
+  arreglado: un MTEXT con dirección (11/21) iba a parar cerca del 0,0. Lo que no se pudo dibujar (sombreado sin borde, cota sin
+  bloque) sigue contándose en "no se trajo". **`dwgADxf(db)`**: lo que entrega LibreDWG de un DWG pasado a DXF de texto (solo
+  espacio modelo, números completos) para que entre por `leerDXF`; lo usa la v42. Probado con los 4 DWG de Brian (AutoCAD 2018):
+  SOLEVANTE de 1 156 a 2 822 objetos y nada sin traer; los límites coinciden con los de AutoCAD (EXTMIN/EXTMAX) salvo los objetos de
+  Civil 3D y los sólidos 3D (154 en el levantamiento), que no se pueden leer. Fluidez con 8 753 objetos (Propuesta del muro, pantalla
+  de celular): 34 ms por cuadro contra 67 de la v40 (los textos ilegibles no se pintan). Prueba nueva `pruebas/planos.js` (33
+  revisiones con números a mano; 18 fallan con la v40); `leerdxf.js` igual. DXF de un dibujo normal idéntico byte por byte. Batería: 48 de 48.
+  **Siguiente (v42, aprobada):** botón "Abrir archivo" en el inicio (DWG, DXF, puntos), proyecto de paso con "Guardar como
+  proyecto" / "Cerrar"; LibreDWG (`@mlightcad/libredwg-web` 0.8.2, GPL-3, ~11 MB) como archivo aparte guardado por `sw.js` al
+  instalar, para abrir DWG sin internet. Brian autorizó la dependencia y la licencia.
 - Versión 40 (2026-10-24, `/ponytail-audit` sobre la v39; Brian: "arregla todo, lo necesario"): 4 hallazgos, los 4 arreglados.
   (1) Con el 3D abierto seguían activas las teclas del lienzo 2D: Retroceso borraba lo que había quedado elegido en Editar sin
   verse (reproducido: 3 → 2 objetos). Los dos escuchadores de `TabDibujo` no hacen nada si `modo3d`; prueba en `barra.js` (falla
