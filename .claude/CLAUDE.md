@@ -48,10 +48,10 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 
 ## Al publicar (solo cuando Brian lo autorice)
 - Subir `TV_VERSION` en index.html, `CACHE_VERSION` en sw.js (ej. "2" y "minicivil-v2") y la versión del
-  `<title>` (hoy "Mini Civil v35").
+  `<title>` (hoy "Mini Civil v36").
 - `node pruebas/sintaxis.js` (sintaxis de cada `<script>` y versión igual en los dos archivos; corre también en
   GitHub en cada push a `main`, `.github/workflows/sintaxis.yml`).
-- Batería completa: `node pruebas/correr.js` (40 pruebas en PC, celular y tablet, también sin conexión con servidor real; `SOLO=nombre` corre algunas). Rápidas: `node pruebas/abrir.js` y `W=390 node pruebas/abrir.js` (PC y celular); `node pruebas/importar.js` si se tocaron los puntos o el DXF; `node pruebas/nube.js` si se tocó Drive o los datos.
+- Batería completa: `node pruebas/correr.js` (44 pruebas en PC, celular y tablet, también sin conexión con servidor real; `SOLO=nombre` corre algunas). Rápidas: `node pruebas/abrir.js` y `W=390 node pruebas/abrir.js` (PC y celular); `node pruebas/importar.js` si se tocaron los puntos o el DXF; `node pruebas/nube.js` si se tocó Drive o los datos.
 - Commit con `git -c user.email=bresmojce@gmail.com -c user.name=bresmojce-stack commit`, push a `main`.
 
 ## Mapa del código (buscar por el comentario de sección `// ───`)
@@ -73,6 +73,28 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 | PROYECTOS (Mini Civil) | **Espacio en el celular (v26)**: en la pestaña Dibujo no se dibuja `mc-barra-proy`; el botón de volver (`mc-volver`, solo la flecha) y `tv-acciones` (tema, Drive, guardado) van dentro de la fila del dibujo (`mc-barra-dib`), que `App` le pasa a `TabDibujo` en el prop `cabecera`. En las otras pestañas la fila sigue igual. En el Dibujo, nuevo/renombrar/duplicar/borrar/importar/tabla/DXF se fueron al menú `⋯` (`mc-mas`, panel `tv-dib-mas`, botones `mc-mas-*`), y la franja de comando `tv-dib-cmd` flota sobre el lienzo (`position: absolute`, ancho al contenido, `pointer-events: none` salvo en sus botones por la regla del `<style>`; se parte en varias líneas si hay muchos botones). El lienzo pasa de 479 a 601 px en el celular (del 57 % al 71 % de la pantalla). `proyectoNuevo` (`{ id, nombre, creado, dibujos }`), `useLocalProyectos` (guarda en `TV_KEY`, con deshacer), `copiaDeProyectos` (para `FalloApp`), `Logo`, `TarjetaNube`, `PantallaProyectos`, `App` (inicio = lista de proyectos; proyecto = pestañas `nav.tab`: Dibujo, Superficies…; desde la v22, dentro de un proyecto NO se dibuja la barra `tv-header`: el tema, Drive y el estado de guardado van en la fila del proyecto `mc-barra-proy`, y `tv-main` lleva `mc-sin-barra` para el margen de la franja de estado del celular. En el inicio la barra con el logo sigue), `FalloApp`, arranque y aviso de versión nueva |
 
 ## Estado y lo que sigue
+- **Regla de Brian (2026-10-24)**: "la opción de deshacer debe estar en todos los módulos donde se edite o dibuje algo". Y "antes
+  de cambiar algo me avisas; cuando necesites escribir código me dices para autorizar". Y "tener todo simple, funcional, no hay
+  que hacer 1000 líneas de código si con 100 basta".
+- Versión 36 (2026-10-24, Brian: "dibujé una línea en 3D y no la pude deshacer; luego eliminé un triángulo y tampoco"):
+  **deshacer en todos los módulos**. Lo dibujado o quitado en el 3D sí quedaba en el historial (`HIST`), pero la vista 3D tapaba
+  el botón flotante del Dibujo (`tv-dib-deshacer`). Ahora la `Vista3D` lleva sus propios **↶ / ↷** (`mc-3d-undo`/`mc-3d-redo`,
+  arriba a la derecha del lienzo; la fila de arriba del 3D ya estaba llena en el celular) y **Ctrl+Z / Ctrl+Y** (`hist3`; mientras
+  se dibuja, Ctrl+Z quita primero el último vértice). Solo cuando el 3D permite editar (`puedeEditar`). Además: (a) en el Dibujo
+  2D, **Ctrl+Z deshacía solo lo que estaba en curso**, nunca lo ya dibujado; ahora deshace las dos cosas (`deshacerDib`) y Ctrl+Y
+  rehace; (b) **dentro de un proyecto, fuera del Dibujo, no había ningún deshacer**: el botón flotante de la App (`tv-deshacer`) y
+  su Ctrl+Z solo funcionaban en el inicio. Ahora funcionan en todo lo que no es el Dibujo (`enDibujo`), es decir Superficies,
+  Secciones, Volúmenes y Presentación. Pruebas nuevas `deshacer3d.js` (20 revisiones) y `deshacer.js` (11), PC y celular; las dos
+  fallan con la v35. El DXF sale idéntico byte por byte.
+- **Plan aprobado (2026-10-24)**, en versiones y con bocetos: https://claude.ai/artifact/CXHp7tQ6VCisVfLhzfrj5G (orden de
+  herramientas), https://claude.ai/artifact/7m6oaMAmmnJe4PFhXgJwxU (guía de estilo), https://claude.ai/artifact/D672C9hD4wNjkNQwo5o6De
+  (módulo de Superficies). v37 reorden de herramientas: grupo Herramientas (replanteo, cuadro, acotar, auto acotar, dividir,
+  imanes, cuadrícula, buscar punto, lista de puntos, regenerar, «Tomar cota de los puntos»), Ver desaparece, Paralela y Desfase a
+  Editar (como en AutoCAD), importar solo en el menú ⋯, barra rápida a la derecha a la carta (por defecto Distancia, Ver todo,
+  Mano, Deshacer, Rehacer), tema al ⋯ y Drive como punto de estado. v38 guía de estilo: botones 36/44/56 (44 en paneles), esquinas
+  8/12/pastilla, letra 12/13/14/16/26 (13 en botones), grosores 600/700. v39 módulo de Superficies con tres vistas (Planta, Editar
+  = el lienzo del Dibujo en modo superficie, 3D) y barras Triángulos, Dibujar, Ajustes; sale del Dibujo el grupo Superficie,
+  2D|3D y Dib 3D (pasa a Herramientas, apagado de entrada). Al final: batería completa, /ponytail-audit y arreglar lo necesario.
 - Versión 35 (2026-10-24, Brian pidió tres cosas de un informe técnico que le hicieron y las publicamos juntas).
   **(1) Curvas de nivel y triángulos al DXF.** Cada superficie tiene dos casillas nuevas en su editor ("LLEVAR AL DXF":
   `mc-dxf-curvas` y `mc-dxf-tin`, guardadas en `sup.dxf = { curvas, tin }`). Lo marcado sale en el DXF del dibujo, en capas
@@ -95,6 +117,9 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
   https://claude.ai/artifact/7AHq78TdkYsTt4VASzFxDf): "no quiero hacerlo muy grande, mi idea es poder trabajar con coordenadas,
   sacar volúmenes, hacer superficies para verlas; lo de crear vías o tuberías… para vías tengo TopoVías". Boceto del replanteo:
   https://claude.ai/artifact/Fbhng4m5vKhES94mRx3pvD
+  **Taller visual borrado** (2026-10-24, Brian: "elimina el taller visual, ya tengo el código y sobre eso trabajo"): se
+  borraron `taller/` (panel.js, hacer.py, apariencia.html), `pruebas/taller.js` y el `.gitignore` que los tapaba. Brian trabaja
+  sobre la copia que tiene en su equipo; si vuelve a hacer falta, se arma de nuevo (era index.html + un panel inyectado).
   **Pendiente que Brian dejó dicho**: "hay que ir viendo cómo hacemos un apartado de herramientas para colocar cosas útiles pero
   que solo sean para un trabajo específico" — el grupo Medir se está llenando de cosas que no son medir (replanteo, cuadro de
   coordenadas, auto acotar). Se le hará un boceto de cómo repartirlo, aparte de esta publicación.
@@ -119,22 +144,6 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
   esquina de abajo a la izquierda, correr la pantalla 220 × 120 px, soltar y comprobar que se movió exactamente eso y que la esquina
   cae donde mostraba la cruz; después ensamblar un cuadrado de 10 m por su esquina en un punto del levantamiento: queda exacto y con
   los cuatro lados de 10). Con la v33 esa prueba da 6 fallas en celular. Batería: 38 de 38. No se tocó `crearDXF` ni ningún cálculo.
-- **Taller visual** (2026-10-24, Brian: "necesito que me hagas o me des el código de como está la app visualmente, para poder
-  experimentar con iconos, temas, colores etc sin tocar el codigo real", y después "dame el archivo index y la opción de poder
-  importar iconos y fuentes y de poder mover los paneles pero no publiques nada de eso"). **NO se sube al repositorio** (está en
-  `.gitignore`): es una herramienta de Brian, no parte de la app. `taller/panel.js` + `taller/hacer.py` arman
-  `taller/apariencia.html` = una copia de `index.html` con un panel encima (pestaña morada 🎨 en el borde derecho) para probar sin
-  tocar nada: **Colores** (los 130 colores del `:root`, leídos del `<style>` de verdad; 👁 hace parpadear uno en magenta para ver
-  dónde se usa), **Iconos** (los 80 de la app e **importar .svg**: se le quita el `<script>`, toma su `viewBox` y se le pone a
-  cualquier icono; se cambia `window.Icono`, que es una `function` global), **Fuentes** (importar .woff2/.woff/.ttf/.otf y elegir
-  una para los textos y otra para los números), **Paneles** (prender "Mover los paneles" y arrastrar cualquier barra; guarda el
-  corrimiento y lo exporta como `transform: translate(...)`), **Temas** (los seis, también los cuatro apagados) y **Código** (todo
-  lo cambiado, listo para copiar y pegarlo en el chat, y "↺ Volver a lo original"). Lo chico se guarda en localStorage
-  `minicivil_taller`; lo importado, en una IndexedDB propia `minicivil_taller` (para no gastar el localStorage, que es compartido
-  con TopoVías). Ojo al armarlo: jsPDF lleva un `</body>` dentro de su código, así que `hacer.py` inyecta en el **último**. El
-  modo sin conexión se apaga en la copia. Prueba `pruebas/taller.js` (33 revisiones, PC y celular; **tampoco se sube**), y
-  `node pruebas/abrir.js taller/apariencia.html` debe pasar igual que la app (solo falla el título, a propósito).
-  Regenerarlo después de cada versión: `python3 taller/hacer.py`.
 - Versión 33 (2026-10-23, el hallazgo 4 de la auditoría): **trazos juntos**. Las líneas, polilíneas, círculos, arcos y trazos
   a mano alzada que comparten estilo se dibujan ahora en **un solo camino del svg** en vez de un elemento por objeto. El
   arreglo de la v19 solo había pasado los **puntos** al canvas; con la v31 un plano importado trae miles de **líneas**, y un
