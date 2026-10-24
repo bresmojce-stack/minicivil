@@ -1,15 +1,16 @@
 // Mini Civil: funciona sin internet.
 // Al publicar una versión nueva, cambiar CACHE_VERSION (y TV_VERSION en index.html).
-const CACHE_VERSION = "minicivil-v43";
+const CACHE_VERSION = "minicivil-v44";
+// v44: cada archivo del lector se agrega solo si falta (los equipos con la v43 no vuelven a bajar los 11 MB del wasm).
 // v43: el lector de DWG (LibreDWG, ~11 MB) va en su propio espacio: se baja una sola vez al instalar y no se vuelve a bajar
 // en cada versión de la app; solo si cambia CACHE_LIB (al cambiar de versión de la librería)
 const CACHE_LIB = "minicivil-libredwg-0.8.2";
-const LIB = ["./lib/libredwg/dist/libredwg-web.js", "./lib/libredwg/wasm/libredwg-web.js", "./lib/libredwg/wasm/libredwg-web.wasm"];
+const LIB = ["./lib/libredwg/lector.js", "./lib/libredwg/dwg_a_dxf.js", "./lib/libredwg/dist/libredwg-web.js", "./lib/libredwg/wasm/libredwg-web.js", "./lib/libredwg/wasm/libredwg-web.wasm"];
 const ARCHIVOS = ["./", "./index.html", "./manifest.json", "./icon-mc-192.png", "./icon-mc-512.png", "./icon-mc-maskable.png", "./apple-touch-icon.png", "./favicon.png"];
 
 self.addEventListener("install", e => {
   // si el lector de DWG no alcanza a bajar (sin señal), la app se instala igual y lo baja la primera vez que se abra un DWG
-  const lib = caches.open(CACHE_LIB).then(c => c.match(LIB[2]).then(m => m ? null : c.addAll(LIB))).catch(() => null);
+  const lib = caches.open(CACHE_LIB).then(c => Promise.all(LIB.map(u => c.match(u).then(m => m ? null : c.add(u))))).catch(() => null);
   e.waitUntil(Promise.all([caches.open(CACHE_VERSION).then(c => c.addAll(ARCHIVOS.map(a => new Request(a, { cache: "reload" })))), lib]).then(() => self.skipWaiting()));
 });
 

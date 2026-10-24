@@ -132,7 +132,8 @@ const DB = {
   ok(r.saltados.length === 0, 'no queda nada sin traer: ' + JSON.stringify(r.saltados));
 
   // DWG → DXF (lo que hará la v42 al abrir un DWG)
-  const d = await p.evaluate(db => { const t = dwgADxf(db), x = leerDXF(t, 1); return { objs: x.objs, saltados: x.saltados, uni: x.unidad || x.uni }; }, DB);
+  const { dwgADxf } = await import("file://" + path.join(__dirname, "..", "lib", "libredwg", "dwg_a_dxf.js"));
+  const d = await p.evaluate(t => { const x = leerDXF(t, 1); return { objs: x.objs, saltados: x.saltados, uni: x.unidad || x.uni }; }, dwgADxf(DB));
   const dl = d.objs.find(o => o.t === 'l' && o.tipo);
   ok(dl && dl.a.x === 1087000.1234567891 && dl.a.y === 877000.9876543219, 'DWG → DXF: las coordenadas pasan con todos sus decimales (1087000.1234567891)');
   ok(dl && dl.tipo === 'disc', 'y el tipo de línea de su capa (DASHED → discontinua)');

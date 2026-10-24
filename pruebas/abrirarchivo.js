@@ -67,7 +67,7 @@ const path = require('path'), http = require('http'), fs = require('fs'), os = r
   // ── sin internet: el lector de DWG quedó guardado ──
   await p.waitForFunction(async () => { const c = await caches.open('minicivil-libredwg-0.8.2'); return !!(await c.match('./lib/libredwg/wasm/libredwg-web.wasm')); }, null, { timeout: 60000 }).catch(() => {});
   const guardada = await p.evaluate(async () => { const c = await caches.open('minicivil-libredwg-0.8.2'); return (await c.keys()).length; });
-  ok(guardada === 3, 'el lector de DWG quedó guardado en el equipo (' + guardada + ' de 3 archivos)');
+  ok(guardada === 5, 'el lector de DWG quedó guardado en el equipo (' + guardada + ' de 5 archivos)');
   await p.waitForFunction(() => navigator.serviceWorker && navigator.serviceWorker.controller, null, { timeout: 30000 }).catch(() => {});
   await ctx.setOffline(true);
   await p.goto(url); await p.waitForSelector('.tv-main', { timeout: 20000 });
