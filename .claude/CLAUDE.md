@@ -13,9 +13,10 @@ amarraba a una vía. Se irá armando por etapas, cada una con boceto y visto bue
   funciones por implementaciones de ejemplo. No alterar fórmulas, cálculos, validaciones, eventos,
   identificadores, nombres de funciones, rutas, formatos de datos ni almacenamiento, salvo autorización expresa.
   Antes de editar, inspeccionar el código y explicar qué archivos se cambian.
-- **Temas:** por ahora solo **Claro y Oscuro** (Brian, 2026-10-22). Los otros cuatro de TopoVías (Agua, Fuego,
-  Aire, Tierra) siguen en `TEMAS` con `listo: false`: no salen en el selector ni en el botón, y `leerTema` no los
-  usa aunque estén guardados; para volver a ofrecerlos basta `listo: true`. No recolorear información técnica (dibujos, cotas, capas CAD, colores de objetos): solo la interfaz.
+- **Temas:** solo **Claro y Oscuro**. Agua, Fuego, Aire y Tierra se borraron de `TEMAS` (Brian, 2026-10-24: "la app debe
+  tener solo claro y oscuro"). Un tema guardado que ya no existe cae en el del sistema. Se conserva lo que arma un tema a
+  partir de su paleta (`hojaTemas`, `cTema`, `colorOscuroTema`/`colorClaroTema`) para los cinco temas nuevos de la guía visual
+  (Minimalista, Ilustrativa, Dibujo técnico, Futurista, Game of Thrones; boceto https://claude.ai/artifact/Af4uF3adofC1wCyyatns8K). No recolorear información técnica (dibujos, cotas, capas CAD, colores de objetos): solo la interfaz.
 - **Accesibilidad:** contraste suficiente en los seis temas; adaptación a celular y tablet; sin dependencias
   nuevas sin autorización (una librería 3D, por ejemplo Three.js, se pide antes).
 - **Flujo obligatorio:** 1 auditar antes de editar; 2 proponer plan con archivos y riesgos; 3 esperar aprobación
@@ -48,7 +49,7 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 
 ## Al publicar (solo cuando Brian lo autorice)
 - Subir `TV_VERSION` en index.html, `CACHE_VERSION` en sw.js (ej. "2" y "minicivil-v2") y la versión del
-  `<title>` (hoy "Mini Civil v41").
+  `<title>` (hoy "Mini Civil v42").
 - `node pruebas/sintaxis.js` (sintaxis de cada `<script>` y versión igual en los dos archivos; corre también en
   GitHub en cada push a `main`, `.github/workflows/sintaxis.yml`).
 - Batería completa: `node pruebas/correr.js` (48 pruebas en PC, celular y tablet, también sin conexión con servidor real; `SOLO=nombre` corre algunas). Rápidas: `node pruebas/abrir.js` y `W=390 node pruebas/abrir.js` (PC y celular); `node pruebas/importar.js` si se tocaron los puntos o el DXF; `node pruebas/nube.js` si se tocó Drive o los datos.
@@ -61,7 +62,7 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 | PALETA / UI ATOMS | `C` (colores de interfaz como `var(--c-*)`), `Icono`/`ICONOS`, `Label`, `Input`, `Sel`, `Btn`, `Card` |
 | ALMACENAMIENTO / COMA DECIMAL | `TVDB` (IndexedDB "minicivil"), `DATOS`, `precargarDatos`, `leerDato`, `guardarDato` (guardado diferido 300 ms), `vaciarGuardado`, `escribirDato` (más de `LS_MAX` = 500 KB va solo a IndexedDB con `__soloIdb`: el localStorage, de unos 5 MB, es compartido con TopoVías), `numeroConPunto`/`corregirComas` y el escuchador global que cambia la coma por punto, `leerNumero`, `lsLeer`/`lsGuardar` |
 | COPIAS AUTOMÁTICAS | `copiaAutomatica` (foto del día antes del primer cambio; guarda `{obras: [], vias: <proyectos>}` como en TopoVías), `leerCopiasAutomaticas` |
-| TEMAS | `TEMAS` (Claro y Oscuro con `listo: true`; los otros cuatro apagados), `hojaTemas`, `leerTema` (solo temas `listo`), `ponerTema` (localStorage `minicivil_tema`), `TV_VERSION`, `TV_KEY`, `TV_KEY_OBRAS` (reservado) |
+| TEMAS | `TEMAS` (solo Claro y Oscuro), `hojaTemas`, `leerTema` (solo temas `listo`), `ponerTema` (localStorage `minicivil_tema`), `TV_VERSION`, `TV_KEY`, `TV_KEY_OBRAS` (reservado) |
 | OTRA VENTANA / DESHACER | `TV_CANAL`, `AvisoOtraVentana`; `HIST`, `histAntesDeCambio`, `deshacer`/`rehacer` (de los proyectos; el Dibujo tiene su propio deshacer) |
 | SINCRONIZAR CON GOOGLE DRIVE | Copiado de TopoVías v92 sin obras ni fotos: `nubeSincronizar` (un archivo "Proyecto - <nombre>.json" por proyecto, clave `proy:<id>` en appProperties, carpeta `NUBE_CARPETA` = "Mini Civil"), `nubeIniciar` (al abrir, al volver, 30 s después de cada cambio), `nubeDesconectar`, `BotonNube`/`PanelNube` (barra). `NUBE_CLIENTE` es el ID **propio** de Mini Civil (proyecto "Mini Civil" de Google Cloud, número 439434487259); nunca usar el de TopoVías (374164493256…), que es otra app. Conexión guardada en localStorage `minicivil_nube`. Prueba `pruebas/nube.js` (Drive simulado, dos equipos) |
 | INSTALAR | `BotonInstalarFinal`, `EstadoGuardado`, `BotonTema`, `SelectorTema` (solo los temas con `listo`), `VentanaArchivo` (guardar o compartir el DXF) |
@@ -73,6 +74,8 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 | PROYECTOS (Mini Civil) | **Espacio en el celular (v26)**: en la pestaña Dibujo no se dibuja `mc-barra-proy`; el botón de volver (`mc-volver`, solo la flecha) y `tv-acciones` (tema, Drive, guardado) van dentro de la fila del dibujo (`mc-barra-dib`), que `App` le pasa a `TabDibujo` en el prop `cabecera`. En las otras pestañas la fila sigue igual. En el Dibujo, nuevo/renombrar/duplicar/borrar/importar/tabla/DXF se fueron al menú `⋯` (`mc-mas`, panel `tv-dib-mas`, botones `mc-mas-*`), y la franja de comando `tv-dib-cmd` flota sobre el lienzo (`position: absolute`, ancho al contenido, `pointer-events: none` salvo en sus botones por la regla del `<style>`; se parte en varias líneas si hay muchos botones). El lienzo pasa de 479 a 601 px en el celular (del 57 % al 71 % de la pantalla). `proyectoNuevo` (`{ id, nombre, creado, dibujos }`), `useLocalProyectos` (guarda en `TV_KEY`, con deshacer), `copiaDeProyectos` (para `FalloApp`), `Logo`, `TarjetaNube`, `PantallaProyectos`, `App` (inicio = lista de proyectos; proyecto = pestañas `nav.tab`: Dibujo, Superficies…; desde la v22, dentro de un proyecto NO se dibuja la barra `tv-header`: el tema, Drive y el estado de guardado van en la fila del proyecto `mc-barra-proy`, y `tv-main` lleva `mc-sin-barra` para el margen de la franja de estado del celular. En el inicio la barra con el logo sigue), `FalloApp`, arranque y aviso de versión nueva |
 
 ## Estado y lo que sigue
+- Versión 42 (2026-10-24, Brian: "la app debe tener solo claro y oscuro; los de agua, tierra, fuego y aire elimínalos"): se
+  borraron esos cuatro de `TEMAS`. Nada más cambia. "Abrir archivo" con DWG pasa a la siguiente versión.
 - Versión 41 (2026-10-24, Brian: "si sabes que algo falta, agrégalo" antes de abrir DWG): **el lector de planos trae lo que
   faltaba** (sirve para DXF y, desde la v42, para DWG). En `leerDXF`: **cotas** (`DIMENSION` = su bloque `*D…` ya dibujado, contado
   en `resumen.COTA`; los puntos de la capa DEFPOINTS no entran), **sombreados** (`HATCH`: cada borde —polilínea, líneas, arcos,

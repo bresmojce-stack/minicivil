@@ -62,7 +62,7 @@ const path = require('path');
   await p.click('.mc-volver');  await p.waitForTimeout(150);   // v26: el botón de volver es la flecha ‹ de la barra del dibujo
   ok(JSON.stringify(await p.$$eval('[data-tema-btn]', bs => bs.map(x => x.dataset.temaBtn))) === '["claro","oscuro"]', 'el inicio ofrece solo Claro y Oscuro');
   await p.evaluate(() => { localStorage.setItem('minicivil_tema', 'fuego'); }); await p.reload(); await p.waitForSelector('header.tv-header');
-  ok(await p.evaluate(() => document.documentElement.getAttribute('data-tema')) !== 'fuego', 'un tema apagado guardado no se usa');
+  ok(await p.evaluate(() => document.documentElement.getAttribute('data-tema')) !== 'fuego', 'un tema guardado que ya no existe (Fuego) no se usa');
   ok((await p.textContent('.mc-proyecto')).includes('1 dibujo · 3 objetos'), 'la tarjeta del proyecto resume: ' + await p.textContent('.mc-proyecto'));
   // Drive: botón de la barra grande y con texto (también en celular) y tarjeta en el inicio; los dos abren la ventana
   const bn = await p.$eval('header button.tv-nube', e => ({ alto: Math.round(e.getBoundingClientRect().height), txt: e.innerText.trim() }));
