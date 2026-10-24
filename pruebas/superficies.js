@@ -116,7 +116,7 @@ const path = require('path');
   // zoom con los botones
   await p.click('.mc-planta button[aria-label=Acercar]'); await p.click('.mc-planta button[aria-label="Ver todo"]');
   // vista 3D: abre, pinta algo distinto del fondo, se gira y se cierra
-  await p.click('button:has-text("Ver en 3D")'); await p.waitForSelector('.mc-3d'); await p.waitForTimeout(500);
+  await p.click('[data-vista="3d"]'); await p.waitForSelector('.mc-3d'); await p.waitForTimeout(500);   // v39: vista 3D del módulo
   const lienzo = await p.$('.mc-3d-lienzo');
   if (!lienzo) ok((await p.textContent('.mc-3d')).includes('WebGL'), 'sin WebGL en este navegador: avisa');
   else {
@@ -130,7 +130,7 @@ const path = require('path');
     const n2 = await pinta();
     ok(n2 > 100 && n2 !== n1, 'girar y exagerar cambian la imagen (' + n1 + ' → ' + n2 + ')');
   }
-  await p.click('.mc-3d button:has-text("Volver")'); await p.waitForTimeout(150);
+  await p.click('[data-vista=planta]'); await p.waitForTimeout(150);
   ok(!(await p.$('.mc-3d')), 'la vista 3D se cierra');
   // al recargar sigue en la pestaña de superficies
   await p.reload(); await p.waitForSelector('.mc-superficies'); await p.waitForTimeout(200);
@@ -168,6 +168,10 @@ const path = require('path');
   ok(/1[01]\d\d\.\d{3}/.test(todo), 'por mallas en toda la zona común (~19.7 × 19.7 × 3): ' + todo);
   await p.click('button[data-metodo=secciones]'); await p.click('button:has-text("la franja de las secciones")');
   await p.click('button:has-text("Copiar tabla")'); await p.waitForTimeout(200);
+  // v39: "Ver en 3D" de Volúmenes abre la vista 3D de Superficies
+  await p.click('.mc-volumenes button:has-text("Ver en 3D")'); await p.waitForTimeout(500);
+  ok(await p.getAttribute('[data-vista="3d"]', 'aria-selected') === 'true' && !!(await p.$('.mc-3d')), 'Volúmenes → Ver en 3D abre la vista 3D de Superficies');
+  await p.click('[data-vista=planta]'); await p.click('button[data-pestana=volumenes]'); await p.waitForSelector('.mc-volumenes'); await p.waitForTimeout(300);
   // informe PDF: se arma, se puede bajar y trae la tabla y las secciones
   await p.click('button:has-text("Informe PDF")'); await p.waitForTimeout(800);
   ok((await p.textContent('body')).includes('Informe PDF listo'), 'el informe PDF queda listo para guardar o compartir');

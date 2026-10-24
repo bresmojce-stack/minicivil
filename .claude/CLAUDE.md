@@ -48,7 +48,7 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 
 ## Al publicar (solo cuando Brian lo autorice)
 - Subir `TV_VERSION` en index.html, `CACHE_VERSION` en sw.js (ej. "2" y "minicivil-v2") y la versión del
-  `<title>` (hoy "Mini Civil v38").
+  `<title>` (hoy "Mini Civil v39").
 - `node pruebas/sintaxis.js` (sintaxis de cada `<script>` y versión igual en los dos archivos; corre también en
   GitHub en cada push a `main`, `.github/workflows/sintaxis.yml`).
 - Batería completa: `node pruebas/correr.js` (46 pruebas en PC, celular y tablet, también sin conexión con servidor real; `SOLO=nombre` corre algunas). Rápidas: `node pruebas/abrir.js` y `W=390 node pruebas/abrir.js` (PC y celular); `node pruebas/importar.js` si se tocaron los puntos o el DXF; `node pruebas/nube.js` si se tocó Drive o los datos.
@@ -73,6 +73,17 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 | PROYECTOS (Mini Civil) | **Espacio en el celular (v26)**: en la pestaña Dibujo no se dibuja `mc-barra-proy`; el botón de volver (`mc-volver`, solo la flecha) y `tv-acciones` (tema, Drive, guardado) van dentro de la fila del dibujo (`mc-barra-dib`), que `App` le pasa a `TabDibujo` en el prop `cabecera`. En las otras pestañas la fila sigue igual. En el Dibujo, nuevo/renombrar/duplicar/borrar/importar/tabla/DXF se fueron al menú `⋯` (`mc-mas`, panel `tv-dib-mas`, botones `mc-mas-*`), y la franja de comando `tv-dib-cmd` flota sobre el lienzo (`position: absolute`, ancho al contenido, `pointer-events: none` salvo en sus botones por la regla del `<style>`; se parte en varias líneas si hay muchos botones). El lienzo pasa de 479 a 601 px en el celular (del 57 % al 71 % de la pantalla). `proyectoNuevo` (`{ id, nombre, creado, dibujos }`), `useLocalProyectos` (guarda en `TV_KEY`, con deshacer), `copiaDeProyectos` (para `FalloApp`), `Logo`, `TarjetaNube`, `PantallaProyectos`, `App` (inicio = lista de proyectos; proyecto = pestañas `nav.tab`: Dibujo, Superficies…; desde la v22, dentro de un proyecto NO se dibuja la barra `tv-header`: el tema, Drive y el estado de guardado van en la fila del proyecto `mc-barra-proy`, y `tv-main` lleva `mc-sin-barra` para el margen de la franja de estado del celular. En el inicio la barra con el logo sigue), `FalloApp`, arranque y aviso de versión nueva |
 
 ## Estado y lo que sigue
+- Versión 39 (2026-10-24, boceto aprobado https://claude.ai/artifact/D672C9hD4wNjkNQwo5o6De): **módulo de Superficies**. La
+  pestaña Superficies tiene tres vistas (`mc-sup-vistas`, botones `data-vista`, localStorage `minicivil_supvista`): **Planta** (lo
+  de siempre, con el editor de cada superficie: ajustes y "Llevar al DXF"), **Editar** y **3D**. Editar es el mismo `TabDibujo`
+  con `modoSup` (reusado, no copiado): grupos `SUP_GRUPOS` = Triángulos (quitar, voltear, unir, devolver) y Dibujar (línea,
+  polilínea, elegir, borrar); arranca en Quitar triángulo; las líneas siempre toman la cota de los puntos (`dib3d || modoSup`).
+  3D = la `Vista3D` incrustada de ese mismo panel (`ver3d`/`onVer3d`; "‹ 2D" vuelve a Editar con el triángulo marcado). Salió del
+  Dibujo: el grupo Superficie y el botón 2D | 3D. "Ver en 3D" de Volúmenes guarda `minicivil_supvista = "3d"` y abre Superficies;
+  se quitó el 3D a pantalla completa de la App (`ver3d`). Donde está el lienzo no sale el deshacer flotante de la App ni su
+  espacio de 84 px abajo (`:has(.tv-dibujo)` en el `<style>`): antes la página se corría 76 px en el celular. Cálculos, datos y
+  DXF sin cambios. Pruebas ajustadas: `supdibujo`, `dibujo3d`, `deshacer3d`, `superficies` (también Volúmenes → 3D), `dedo`,
+  `v35`, `barra`. Batería: 46 de 46.
 - Versión 38 (2026-10-24, guía de estilo aprobada https://claude.ai/artifact/7m6oaMAmmnJe4PFhXgJwxU, primero en el Dibujo):
   `Btn` 36 px (small) / 44 px de alto, esquina 8, letra 13 de grosor 600; `Input` y `Sel` esquina 8 (cambia en toda la app, son
   los átomos). En el Dibujo: barra de grupos 56 px, letra 12/600; hoja de herramientas con esquina 8 y letra 12/600; títulos de

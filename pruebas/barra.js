@@ -10,7 +10,8 @@ const path = require('path');
   const p = await ctx.newPage(); const errs = []; p.on('pageerror', e => errs.push(e.message));
   let fallas = 0; const ok = (bien, t) => { console.log((bien ? 'bien  ' : 'FALLA ') + t); if (!bien) fallas++; };
   await p.goto('file://' + archivo); await p.waitForSelector('header.tv-header');
-  const proy = [{ id: 1, nombre: 'P', creado: '', dibujos: [{ id: 2, nombre: 'd', sig: 1, objs: [{ id: 9, t: 'p', x: 0, y: 0 }, { id: 8, t: 'p', x: 30, y: 40 }] }] }];
+  const proy = [{ id: 1, nombre: 'P', creado: '', dibujos: [{ id: 2, nombre: 'd', sig: 1, objs: [{ id: 9, t: 'p', x: 0, y: 0, z: 1, d: 'TN' }, { id: 8, t: 'p', x: 30, y: 40, z: 2, d: 'TN' }, { id: 7, t: 'p', x: 40, y: 0, z: 3, d: 'TN' }] }],
+    superficies: [{ id: 111, nombre: 'Terreno', fuente: { tipo: 'desc', descs: ['TN'] }, color: '#16A34A', curvas: '1' }] }];
   await p.evaluate(v => { localStorage.clear(); localStorage.setItem('minicivil', JSON.stringify(v)); localStorage.setItem('minicivil__t', String(Date.now() + 99999));
     localStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'dibujo' })); }, proy);
   await p.reload(); await p.waitForSelector('.tv-dib-svg'); await p.waitForTimeout(500);
@@ -53,6 +54,12 @@ const path = require('path');
   await p.click('.tv-panel-nube button[aria-label^=Cerra]'); await p.waitForTimeout(100);
   await p.click('.mc-mas'); await p.click('.tv-dib-mas [data-tema-btn=oscuro]'); await p.waitForTimeout(100);
   ok(await p.evaluate(() => document.documentElement.getAttribute('data-tema')) === 'oscuro', 'el tema se cambia en el menú ⋯');
+  // v39: la superficie se edita en su pestaña
+  ok(!grupos.includes('superficie') && !(await p.$('.mc-modo')), 'el Dibujo ya no tiene el grupo Superficie ni el 2D | 3D');
+  const irA = async (tab, v) => { await p.evaluate(([t, v]) => { localStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: t })); if (v) localStorage.setItem('minicivil_supvista', JSON.stringify(v)); }, [tab, v]); await p.reload(); await p.waitForTimeout(700); };
+  await irA('superficies', 'editar');
+  const gs = await p.$$eval('.tv-dib-nav button[data-grupo]', bs => bs.map(x => x.dataset.grupo));
+  ok(gs.join() === 'superficie,dibujar' && /QUITAR TRIÁNGULO/.test(await p.textContent('.tv-dib-cmd')), 'Superficies → Editar: grupos Triángulos y Dibujar, y arranca en Quitar triángulo');
   if (movil) ok(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'sin desplazamiento de lado en celular');
   ok(!errs.length, 'sin errores' + (errs.length ? ': ' + errs.join(' | ') : ''));
   await b.close();

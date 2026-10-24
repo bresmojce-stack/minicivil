@@ -82,12 +82,6 @@ const path = require('path');
   await toque('touchEnd', []); await p.waitForTimeout(400);
   const a4 = await estado();
   ok(a4.n === a3.n + 1 && a4.ultimo.t === 'p', 'al soltar la lupa queda el punto puesto (' + a4.n + ' objetos)');
-  // 5. las herramientas de Superficie: el arrastre mueve la vista (antes no hacía nada)
-  const e5 = (await estado()).escala;
-  await herr('superficie', 'supquitar');
-  await arrastrar(cx - 100, cy, 180, 60);
-  const a5 = await estado();
-  ok(a5.n === a4.n, 'en Superficie el arrastre no cambia el dibujo');
   // 6. Seleccionar varios conserva su recuadro
   await p.click('.mc-rapida [data-accion=todo]'); await p.waitForTimeout(400);   // todos a la vista: el recuadro no depende de dónde quedó la vista
   await herr('editar', 'seleccionar');

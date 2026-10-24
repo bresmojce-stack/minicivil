@@ -13,9 +13,9 @@ const path = require('path');
   await p.goto('file://' + archivo); await p.waitForSelector('header.tv-header');
   const objs = []; for (let i = 0; i <= 6; i++) for (let j = 0; j <= 6; j++) objs.push({ id: 100 + i * 10 + j, t: 'p', x: 1000000 + i * 10, y: 900000 + j * 10, z: 100 + 3 * Math.sin(i / 2) + j * 0.5, nom: String(i * 7 + j + 1), d: 'TN' });
   const proy = [{ id: 1, nombre: 'Lote', creado: '', dibujos: [{ id: 2, nombre: 'Lev', sig: 60, objs }], superficies: [{ id: 111, nombre: 'Terreno', fuente: { tipo: 'desc', descs: ['TN'] }, color: '#16A34A', curvas: '1' }] }];
-  await p.evaluate(v => { localStorage.clear(); localStorage.setItem('minicivil', JSON.stringify(v)); localStorage.setItem('minicivil__t', String(Date.now() + 99999)); localStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'dibujo' })); }, proy);
+  await p.evaluate(v => { localStorage.clear(); localStorage.setItem('minicivil', JSON.stringify(v)); localStorage.setItem('minicivil__t', String(Date.now() + 99999)); localStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'superficies' })); localStorage.setItem('minicivil_supvista', JSON.stringify('editar')); }, proy);
   await p.reload(); await p.waitForSelector('.tv-dib-svg'); await p.waitForTimeout(400);
-  await p.click('.mc-modo button[data-modo="3D"]'); await p.waitForSelector('.mc-3d-dibujo'); await p.waitForTimeout(900);
+  await p.click('[data-vista="3d"]'); await p.waitForSelector('.mc-3d-dibujo'); await p.waitForTimeout(900);
   if (!(await p.$('.mc-3d-dibujo .mc-3d-lienzo'))) { ok(true, 'sin WebGL en este equipo: no se puede probar el 3D'); await b.close(); process.exit(0); }
 
   const estado = () => p.evaluate(() => ({ atras: HIST.atras.length, adelante: HIST.adelante.length,

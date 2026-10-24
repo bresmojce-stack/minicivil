@@ -15,11 +15,11 @@ const path = require('path');
   objs.push({ id: 'muro', t: 'pl', alto: 2, v: [{ x: 1000010, y: 900020, z: 104 }, { x: 1000050, y: 900020, z: 104 }] });
   objs.push({ id: 'borde', t: 'pl', v: [{ x: 1000000, y: 900060 }, { x: 1000060, y: 900060 }] });   // sin cota: va sobre la superficie
   const proyecto = [{ id: 1, nombre: 'Lote', creado: '', dibujos: [{ id: 2, nombre: 'Lev', sig: 60, objs }], superficies: [{ id: 'tn', nombre: 'Terreno', fuente: { tipo: 'desc', descs: ['TN'] }, color: '#16A34A', curvas: '1' }] }];
-  await p.evaluate(v => { localStorage.clear(); localStorage.setItem('minicivil', JSON.stringify(v)); localStorage.setItem('minicivil__t', String(Date.now() + 99999)); localStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'dibujo' })); }, proyecto);
+  await p.evaluate(v => { localStorage.clear(); localStorage.setItem('minicivil', JSON.stringify(v)); localStorage.setItem('minicivil__t', String(Date.now() + 99999)); localStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'superficies' })); localStorage.setItem('minicivil_supvista', JSON.stringify('editar')); }, proyecto);
   await p.reload(); await p.waitForSelector('.tv-dib-svg'); await p.waitForTimeout(300);
   const datos = () => p.evaluate(() => { vaciarGuardado(); return JSON.parse(localStorage.getItem('minicivil'))[0]; });
-  ok(await p.$('.mc-modo button[data-modo="3D"]') !== null, 'el botón 2D | 3D está en la fila de arriba del Dibujo');
-  await p.click('.mc-modo button[data-modo="3D"]'); await p.waitForSelector('.mc-3d-dibujo'); await p.waitForTimeout(500);
+  ok(await p.$('[data-vista="3d"]') !== null, 'la vista 3D está en la pestaña Superficies');
+  await p.click('[data-vista="3d"]'); await p.waitForSelector('.mc-3d-dibujo'); await p.waitForTimeout(500);
   const lienzo = await p.$('.mc-3d-dibujo .mc-3d-lienzo');
   if (!lienzo) { ok((await p.textContent('.mc-3d-dibujo')).includes('WebGL'), 'sin WebGL: avisa'); }
   else {
@@ -58,7 +58,7 @@ const path = require('path');
     }
   }
   // ── v24: cómo se ve la superficie: sólido, triángulos y curvas de nivel, cada uno aparte ──
-  if (!(await p.$('.mc-3d-dibujo'))) { await p.click('.mc-modo button[data-modo="3D"]'); await p.waitForSelector('.mc-3d-dibujo'); await p.waitForTimeout(800); }
+  if (!(await p.$('.mc-3d-dibujo'))) { await p.click('[data-vista="3d"]'); await p.waitForSelector('.mc-3d-dibujo'); await p.waitForTimeout(800); }
   if (await p.$('.mc-3d-dibujo .mc-3d-lienzo')) {
     const verdes = () => p.evaluate(() => { const c = document.querySelector('.mc-3d-dibujo .mc-3d-lienzo'), x = document.createElement('canvas');
       x.width = c.width; x.height = c.height; const g = x.getContext('2d'); g.drawImage(c, 0, 0);
@@ -81,14 +81,14 @@ const path = require('path');
       'y apagando los triángulos quedan solo las curvas (' + sinSolido.pintado + ' → ' + soloCurvas.pintado + ' píxeles dibujados)');
     // se acuerda al volver a entrar
     await p.click('.mc-3d-dibujo button:has-text("‹ 2D")'); await p.waitForTimeout(300);
-    await p.click('.mc-modo button[data-modo="3D"]'); await p.waitForSelector('.mc-3d-dibujo'); await p.waitForTimeout(900);
+    await p.click('[data-vista="3d"]'); await p.waitForSelector('.mc-3d-dibujo'); await p.waitForTimeout(900);
     ok(await p.isChecked('.mc-3d label:has-text("Curvas de nivel") input') && !(await p.isChecked('.mc-3d label:has-text("Sólido") input')),
       'al volver a entrar se acuerda de cómo quedó la vista');
     await p.click('.mc-3d label:has-text("Sólido") input'); await p.click('.mc-3d label:has-text("Triángulos") input');
     await p.click('.mc-3d label:has-text("Curvas de nivel") input'); await p.waitForTimeout(400);
   }
   // ── v23: los textos de los puntos en 3D (cota y descripción), cada uno con su casilla ──
-  if (!(await p.$('.mc-3d-dibujo'))) { await p.click('.mc-modo button[data-modo="3D"]'); await p.waitForSelector('.mc-3d-dibujo'); await p.waitForTimeout(800); }
+  if (!(await p.$('.mc-3d-dibujo'))) { await p.click('[data-vista="3d"]'); await p.waitForSelector('.mc-3d-dibujo'); await p.waitForTimeout(800); }
   if (await p.$('.mc-3d-dibujo .mc-3d-lienzo')) {
     const cuantos = () => p.evaluate(() => (window.MC_3D || {}).etq || 0);
     // píxeles del canvas de textos: todos, y los de la descripción (que va en el color del punto, rojizo)
@@ -117,12 +117,12 @@ const path = require('path');
     // se acuerda al volver a entrar
     await p.click('.mc-3d label:has-text("Cota") input'); await p.waitForTimeout(300);
     await p.click('.mc-3d-dibujo button:has-text("‹ 2D")'); await p.waitForTimeout(300);
-    await p.click('.mc-modo button[data-modo="3D"]'); await p.waitForSelector('.mc-3d-dibujo'); await p.waitForTimeout(700);
+    await p.click('[data-vista="3d"]'); await p.waitForSelector('.mc-3d-dibujo'); await p.waitForTimeout(700);
     ok(await p.isChecked('.mc-3d label:has-text("Cota") input') && await cuantos() > 0, 'al volver a entrar al 3D se acuerda de las casillas');
     await p.click('.mc-3d label:has-text("Cota") input'); await p.waitForTimeout(300);
   }
   // ── v24: los ajustes de la superficie se cambian sin salir del 3D ──
-  if (!(await p.$('.mc-3d-dibujo'))) { await p.click('.mc-modo button[data-modo="3D"]'); await p.waitForSelector('.mc-3d-dibujo'); await p.waitForTimeout(800); }
+  if (!(await p.$('.mc-3d-dibujo'))) { await p.click('[data-vista="3d"]'); await p.waitForSelector('.mc-3d-dibujo'); await p.waitForTimeout(800); }
   if (await p.$('.mc-3d-ajustes')) {
     await p.click('.mc-3d-ajustes'); await p.waitForTimeout(400);
     ok(await p.$('.mc-3d-editor .mc-editor-sup') !== null, 'el botón ⚙ abre los ajustes de la superficie dentro del 3D');
@@ -139,7 +139,7 @@ const path = require('path');
     ok(!(await p.$('.mc-3d-editor')) && (await datos()).superficies[0].nombre === 'Terreno natural', 'Cancelar no cambia nada');
   }
   // ── v25: dibujar líneas y polilíneas dentro del 3D, y borrar lo que quedó mal ──
-  if (!(await p.$('.mc-3d-dibujo'))) { await p.click('.mc-modo button[data-modo="3D"]'); await p.waitForSelector('.mc-3d-dibujo'); await p.waitForTimeout(800); }
+  if (!(await p.$('.mc-3d-dibujo'))) { await p.click('[data-vista="3d"]'); await p.waitForSelector('.mc-3d-dibujo'); await p.waitForTimeout(800); }
   if (await p.$('.mc-3d-dib[data-dib="polilinea"]')) {
     const nObjs = () => p.evaluate(() => { vaciarGuardado(); return JSON.parse(localStorage.getItem('minicivil'))[0].dibujos[0].objs.length; });
     const ultimo = () => p.evaluate(() => { const o = JSON.parse(localStorage.getItem('minicivil'))[0].dibujos[0].objs; return o[o.length - 1]; });
@@ -164,7 +164,7 @@ const path = require('path');
     ok(!(await p.$('.mc-3d-dibpanel')) || !(await p.textContent('.mc-3d-dibpanel')).includes('vértices'), 'después de terminar, se vacía lo que estaba dibujando y queda listo para la siguiente');
     await p.click('.mc-3d-salirdib'); await p.waitForTimeout(300);   // salir del modo dibujar para poder elegir
     // la misma polilínea se puede tocar en el 3D y borrar
-    if (!(await p.$('.mc-3d-dibujo'))) { await p.click('.mc-modo button[data-modo="3D"]'); await p.waitForSelector('.mc-3d-dibujo'); await p.waitForTimeout(900); }
+    if (!(await p.$('.mc-3d-dibujo'))) { await p.click('[data-vista="3d"]'); await p.waitForSelector('.mc-3d-dibujo'); await p.waitForTimeout(900); }
     const medio = { x: (tres[0].x + tres[1].x) / 2, y: (tres[0].y + tres[1].y) / 2, z: (pl.v[0].z + pl.v[1].z) / 2 };
     const s2 = await enPantalla3(medio); await p.mouse.click(s2.X, s2.Y); await p.waitForTimeout(500);
     const haySel = await p.$('.mc-3d-selobj');
@@ -172,7 +172,7 @@ const path = require('path');
     if (haySel) { await p.click('.mc-3d-borrar'); await p.waitForTimeout(900);
       ok(await nObjs() === n0, 'Borrar la saca del dibujo (' + n0 + ' objetos otra vez)'); }
     // una línea: dos toques y queda sola, sin Terminar
-    if (!(await p.$('.mc-3d-dibujo'))) { await p.click('.mc-modo button[data-modo="3D"]'); await p.waitForSelector('.mc-3d-dibujo'); await p.waitForTimeout(900); }
+    if (!(await p.$('.mc-3d-dibujo'))) { await p.click('[data-vista="3d"]'); await p.waitForSelector('.mc-3d-dibujo'); await p.waitForTimeout(900); }
     await p.click('.mc-3d-dib[data-dib="linea"]'); await p.waitForTimeout(350);
     await tocar3(tres[0]); await tocar3(tres[2]); await p.waitForTimeout(900);
     const ln = await ultimo();

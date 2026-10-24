@@ -65,7 +65,7 @@ const path = require('path');
   await ir('superficies'); await p.waitForTimeout(400);
   await p.click('.mc-superficies .mc-sup-nombre, .mc-sup-editar').catch(() => {});
   const edit = await p.$('.mc-dxf-curvas');
-  if (!edit) { const b2 = await p.$$('.mc-superficies button'); for (const x of b2) { const t = await x.textContent(); if (/Ajustes|⚙|Editar/i.test(t)) { await x.click(); break; } } }
+  if (!edit) { const b2 = await p.$$('.mc-sup-tarjeta button'); for (const x of b2) { const t = await x.textContent(); if (/Ajustes|⚙|Editar/i.test(t)) { await x.click(); break; } } }
   await p.waitForTimeout(300);
   ok(!!(await p.$('.mc-dxf-curvas')) && !!(await p.$('.mc-dxf-tin')), 'las dos casillas "Llevar al DXF" están en el editor de la superficie');
 
