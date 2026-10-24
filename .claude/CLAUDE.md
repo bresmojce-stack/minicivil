@@ -49,10 +49,10 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 
 ## Al publicar (solo cuando Brian lo autorice)
 - Subir `TV_VERSION` en index.html, `CACHE_VERSION` en sw.js (ej. "2" y "minicivil-v2") y la versión del
-  `<title>` (hoy "Mini Civil v42").
+  `<title>` (hoy "Mini Civil v43").
 - `node pruebas/sintaxis.js` (sintaxis de cada `<script>` y versión igual en los dos archivos; corre también en
   GitHub en cada push a `main`, `.github/workflows/sintaxis.yml`).
-- Batería completa: `node pruebas/correr.js` (48 pruebas en PC, celular y tablet, también sin conexión con servidor real; `SOLO=nombre` corre algunas). Rápidas: `node pruebas/abrir.js` y `W=390 node pruebas/abrir.js` (PC y celular); `node pruebas/importar.js` si se tocaron los puntos o el DXF; `node pruebas/nube.js` si se tocó Drive o los datos.
+- Batería completa: `node pruebas/correr.js` (50 pruebas en PC, celular y tablet, también sin conexión con servidor real; `SOLO=nombre` corre algunas). Rápidas: `node pruebas/abrir.js` y `W=390 node pruebas/abrir.js` (PC y celular); `node pruebas/importar.js` si se tocaron los puntos o el DXF; `node pruebas/nube.js` si se tocó Drive o los datos.
 - Commit con `git -c user.email=bresmojce@gmail.com -c user.name=bresmojce-stack commit`, push a `main`.
 
 ## Mapa del código (buscar por el comentario de sección `// ───`)
@@ -74,6 +74,22 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 | PROYECTOS (Mini Civil) | **Espacio en el celular (v26)**: en la pestaña Dibujo no se dibuja `mc-barra-proy`; el botón de volver (`mc-volver`, solo la flecha) y `tv-acciones` (tema, Drive, guardado) van dentro de la fila del dibujo (`mc-barra-dib`), que `App` le pasa a `TabDibujo` en el prop `cabecera`. En las otras pestañas la fila sigue igual. En el Dibujo, nuevo/renombrar/duplicar/borrar/importar/tabla/DXF se fueron al menú `⋯` (`mc-mas`, panel `tv-dib-mas`, botones `mc-mas-*`), y la franja de comando `tv-dib-cmd` flota sobre el lienzo (`position: absolute`, ancho al contenido, `pointer-events: none` salvo en sus botones por la regla del `<style>`; se parte en varias líneas si hay muchos botones). El lienzo pasa de 479 a 601 px en el celular (del 57 % al 71 % de la pantalla). `proyectoNuevo` (`{ id, nombre, creado, dibujos }`), `useLocalProyectos` (guarda en `TV_KEY`, con deshacer), `copiaDeProyectos` (para `FalloApp`), `Logo`, `TarjetaNube`, `PantallaProyectos`, `App` (inicio = lista de proyectos; proyecto = pestañas `nav.tab`: Dibujo, Superficies…; desde la v22, dentro de un proyecto NO se dibuja la barra `tv-header`: el tema, Drive y el estado de guardado van en la fila del proyecto `mc-barra-proy`, y `tv-main` lleva `mc-sin-barra` para el margen de la franja de estado del celular. En el inicio la barra con el logo sigue), `FalloApp`, arranque y aviso de versión nueva |
 
 ## Estado y lo que sigue
+- Versión 43 (2026-10-24, Brian: "haz el botón Abrir archivo con DWG"): **abrir archivos desde el inicio**. Botón
+  "Abrir archivo" (`mc-abrir-archivo`, en la tarjeta Proyectos de `PantallaProyectos`) para DWG, DXF y puntos (.csv/.txt).
+  `leerArchivoPlano(file)` → `{ tipo: "dxf" | "puntos", texto }`; el DWG pasa por `dwgATexto(buf)`: carga LibreDWG solo la
+  primera vez (`import("./lib/libredwg/dist/libredwg-web.js")`, variable `LIBREDWG`; si falla se puede volver a intentar) y
+  `dwgADxf` (v41). La App crea un **proyecto de paso** (`temporal: true`, un dibujo vacío con el nombre del archivo) y le pasa
+  el archivo a `TabDibujo` (props `abrir`/`onAbierto`, estado `porAbrir` en la App), que abre la misma revisión de siempre
+  (`abrirDXF` para el panel de Importar DXF, `setImp` para Importar puntos). Mientras sea temporal: franja `mc-temporal` con
+  **Guardar como proyecto** (`mc-guardar-proy`, quita `temporal`) y **Cerrar** (`mc-cerrar-archivo`, lo quita; ↶ Deshacer lo
+  devuelve), solo la pestaña Dibujo, en el inicio la etiqueta "Archivo abierto · sin guardar" (`mc-sin-guardar`) y **no va a
+  Drive** (`nubeSincronizar` no lo pone en su lista). "Importar DXF o DWG" del menú ⋯ también acepta DWG. **LibreDWG** en
+  `lib/libredwg/` (`dist/libredwg-web.js` + `wasm/`, 11 MB, GPL-3 con su `COPYING` y `LEEME.md`): `sw.js` la guarda al instalar en
+  su propio espacio `CACHE_LIB = "minicivil-libredwg-0.8.2"`, que no se borra al cambiar de versión de la app (solo si cambia la
+  de la librería); si no alcanza a bajar, la app se instala igual. Medido en el navegador (pantalla de celular) con los 4 DWG de
+  Brian: 0,2 a 0,9 s cada uno. Prueba nueva `pruebas/abrirarchivo.js` (14 revisiones, PC y celular, con servidor de verdad
+  porque el módulo no carga desde file://): DWG de ejemplo de LibreDWG (`pruebas/muestra_2018.dwg`, GPL-3), guardar como
+  proyecto, DXF cerrar y deshacer, puntos y **DWG sin internet**. Batería: 50 de 50. DXF de un dibujo normal idéntico byte por byte.
 - Versión 42 (2026-10-24, Brian: "la app debe tener solo claro y oscuro; los de agua, tierra, fuego y aire elimínalos"): se
   borraron esos cuatro de `TEMAS`. Nada más cambia. "Abrir archivo" con DWG pasa a la siguiente versión.
 - Versión 41 (2026-10-24, Brian: "si sabes que algo falta, agrégalo" antes de abrir DWG): **el lector de planos trae lo que

@@ -1,16 +1,22 @@
 // Mini Civil: funciona sin internet.
 // Al publicar una versión nueva, cambiar CACHE_VERSION (y TV_VERSION en index.html).
-const CACHE_VERSION = "minicivil-v42";
+const CACHE_VERSION = "minicivil-v43";
+// v43: el lector de DWG (LibreDWG, ~11 MB) va en su propio espacio: se baja una sola vez al instalar y no se vuelve a bajar
+// en cada versión de la app; solo si cambia CACHE_LIB (al cambiar de versión de la librería)
+const CACHE_LIB = "minicivil-libredwg-0.8.2";
+const LIB = ["./lib/libredwg/dist/libredwg-web.js", "./lib/libredwg/wasm/libredwg-web.js", "./lib/libredwg/wasm/libredwg-web.wasm"];
 const ARCHIVOS = ["./", "./index.html", "./manifest.json", "./icon-mc-192.png", "./icon-mc-512.png", "./icon-mc-maskable.png", "./apple-touch-icon.png", "./favicon.png"];
 
 self.addEventListener("install", e => {
-  e.waitUntil(caches.open(CACHE_VERSION).then(c => c.addAll(ARCHIVOS.map(a => new Request(a, { cache: "reload" })))).then(() => self.skipWaiting()));
+  // si el lector de DWG no alcanza a bajar (sin señal), la app se instala igual y lo baja la primera vez que se abra un DWG
+  const lib = caches.open(CACHE_LIB).then(c => c.match(LIB[2]).then(m => m ? null : c.addAll(LIB))).catch(() => null);
+  e.waitUntil(Promise.all([caches.open(CACHE_VERSION).then(c => c.addAll(ARCHIVOS.map(a => new Request(a, { cache: "reload" })))), lib]).then(() => self.skipWaiting()));
 });
 
 // Solo borra sus propias copias viejas: TopoVías vive en la misma dirección (bresmojce-stack.github.io)
 self.addEventListener("activate", e => {
   e.waitUntil(caches.keys()
-    .then(ks => Promise.all(ks.filter(k => k.startsWith("minicivil-") && k !== CACHE_VERSION).map(k => caches.delete(k))))
+    .then(ks => Promise.all(ks.filter(k => k.startsWith("minicivil-") && k !== CACHE_VERSION && k !== CACHE_LIB).map(k => caches.delete(k))))
     .then(() => self.clients.claim()));
 });
 
@@ -20,7 +26,8 @@ self.addEventListener("fetch", e => {
   if (e.request.method !== "GET" || new URL(e.request.url).origin !== location.origin) return;
   // la app y su manifest (nombre e ícono) se piden primero a la red
   const navegar = e.request.mode === "navigate" || /manifest\.json$/.test(new URL(e.request.url).pathname);
-  e.respondWith(caches.open(CACHE_VERSION).then(async cache => {
+  const deLib = /\/lib\/libredwg\//.test(new URL(e.request.url).pathname);
+  e.respondWith(caches.open(deLib ? CACHE_LIB : CACHE_VERSION).then(async cache => {
     const clave = e.request.mode === "navigate" ? "./index.html" : e.request;
     const guardado = await cache.match(clave, { ignoreSearch: e.request.mode === "navigate" });
     const red = fetch(e.request, navegar ? { cache: "no-cache" } : undefined).then(r => {
