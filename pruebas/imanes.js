@@ -50,10 +50,10 @@ const path = require('path');
     [{ id: 1, nombre: 'Z', creado: '', dibujos: [{ id: 2, nombre: 'd', sig: 9, objs: [{ id: 1, t: 'l', a: { x: 0, y: 0 }, b: { x: 100, y: 0 } },
       { id: 2, t: 'p', x: -10, y: 50, nom: 'A' }, { id: 3, t: 'p', x: 110, y: -10, nom: 'B' }] }] }]);
   await p.reload(); await p.waitForSelector('.tv-dib-svg'); await p.waitForTimeout(500);
-  await p.click('.tv-dib-nav button[data-grupo=ver]'); await p.click('.tv-dib-hoja button[data-herr="@todo"]'); await p.waitForTimeout(400);
+  await p.click('.mc-rapida [data-accion=todo]'); await p.waitForTimeout(400);
 
   // las casillas nuevas están, con Perpendicular prendido y Cercano apagado
-  await p.click('.tv-dib-nav button[data-grupo=ver]'); await p.click('.tv-dib-hoja button[data-herr="@imanes"]'); await p.waitForTimeout(300);
+  await p.click('.tv-dib-nav button[data-grupo=herramientas]'); await p.click('.tv-dib-hoja button[data-herr="@imanes"]'); await p.waitForTimeout(300);
   const casillas = await p.evaluate(() => [...document.querySelectorAll('label')].filter(l => /Perpendicular|Cercano/.test(l.textContent))
     .map(l => ({ t: l.textContent.trim(), on: l.querySelector('input').checked })));
   ok(casillas.length === 2 && casillas.find(c => /Perpendicular/.test(c.t)).on === true && casillas.find(c => /Cercano/.test(c.t)).on === false,
@@ -79,7 +79,7 @@ const path = require('path');
     'dibujando una línea desde (30,40), el segundo punto se pega perpendicular a (30, 0): quedó en (' + L.b.x.toFixed(3) + ', ' + L.b.y.toFixed(3) + ')');
 
   // ── 3. Cercano: se prende y el punto cae sobre la línea donde está el cursor ──
-  await p.click('.tv-dib-nav button[data-grupo=ver]'); await p.click('.tv-dib-hoja button[data-herr="@imanes"]'); await p.waitForTimeout(250);
+  await p.click('.tv-dib-nav button[data-grupo=herramientas]'); await p.click('.tv-dib-hoja button[data-herr="@imanes"]'); await p.waitForTimeout(250);
   await p.evaluate(() => { const l = [...document.querySelectorAll('label')].find(x => /Cercano/.test(x.textContent)); l.querySelector('input').click();
     const pp = [...document.querySelectorAll('label')].find(x => /Perpendicular/.test(x.textContent)); pp.querySelector('input').click(); });
   await p.waitForTimeout(200);

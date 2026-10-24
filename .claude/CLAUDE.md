@@ -48,10 +48,10 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 
 ## Al publicar (solo cuando Brian lo autorice)
 - Subir `TV_VERSION` en index.html, `CACHE_VERSION` en sw.js (ej. "2" y "minicivil-v2") y la versión del
-  `<title>` (hoy "Mini Civil v36").
+  `<title>` (hoy "Mini Civil v37").
 - `node pruebas/sintaxis.js` (sintaxis de cada `<script>` y versión igual en los dos archivos; corre también en
   GitHub en cada push a `main`, `.github/workflows/sintaxis.yml`).
-- Batería completa: `node pruebas/correr.js` (44 pruebas en PC, celular y tablet, también sin conexión con servidor real; `SOLO=nombre` corre algunas). Rápidas: `node pruebas/abrir.js` y `W=390 node pruebas/abrir.js` (PC y celular); `node pruebas/importar.js` si se tocaron los puntos o el DXF; `node pruebas/nube.js` si se tocó Drive o los datos.
+- Batería completa: `node pruebas/correr.js` (46 pruebas en PC, celular y tablet, también sin conexión con servidor real; `SOLO=nombre` corre algunas). Rápidas: `node pruebas/abrir.js` y `W=390 node pruebas/abrir.js` (PC y celular); `node pruebas/importar.js` si se tocaron los puntos o el DXF; `node pruebas/nube.js` si se tocó Drive o los datos.
 - Commit con `git -c user.email=bresmojce@gmail.com -c user.name=bresmojce-stack commit`, push a `main`.
 
 ## Mapa del código (buscar por el comentario de sección `// ───`)
@@ -73,6 +73,17 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 | PROYECTOS (Mini Civil) | **Espacio en el celular (v26)**: en la pestaña Dibujo no se dibuja `mc-barra-proy`; el botón de volver (`mc-volver`, solo la flecha) y `tv-acciones` (tema, Drive, guardado) van dentro de la fila del dibujo (`mc-barra-dib`), que `App` le pasa a `TabDibujo` en el prop `cabecera`. En las otras pestañas la fila sigue igual. En el Dibujo, nuevo/renombrar/duplicar/borrar/importar/tabla/DXF se fueron al menú `⋯` (`mc-mas`, panel `tv-dib-mas`, botones `mc-mas-*`), y la franja de comando `tv-dib-cmd` flota sobre el lienzo (`position: absolute`, ancho al contenido, `pointer-events: none` salvo en sus botones por la regla del `<style>`; se parte en varias líneas si hay muchos botones). El lienzo pasa de 479 a 601 px en el celular (del 57 % al 71 % de la pantalla). `proyectoNuevo` (`{ id, nombre, creado, dibujos }`), `useLocalProyectos` (guarda en `TV_KEY`, con deshacer), `copiaDeProyectos` (para `FalloApp`), `Logo`, `TarjetaNube`, `PantallaProyectos`, `App` (inicio = lista de proyectos; proyecto = pestañas `nav.tab`: Dibujo, Superficies…; desde la v22, dentro de un proyecto NO se dibuja la barra `tv-header`: el tema, Drive y el estado de guardado van en la fila del proyecto `mc-barra-proy`, y `tv-main` lleva `mc-sin-barra` para el margen de la franja de estado del celular. En el inicio la barra con el logo sigue), `FalloApp`, arranque y aviso de versión nueva |
 
 ## Estado y lo que sigue
+- Versión 37 (2026-10-24, plan aprobado por Brian, boceto https://claude.ai/artifact/CXHp7tQ6VCisVfLhzfrj5G): **orden de
+  herramientas**. `DIB_GRUPOS`: Dibujar solo dibuja; Medir solo mide (ID, distancia, área, ángulo, radio, abscisa); Paralela y
+  Desfase pasan a Editar; grupo nuevo **Herramientas** (`herramientas`, icono `wrench`): replanteo, cuadro, acotar, auto acotar,
+  estacar, imanes, cuadrícula, buscar, lista de puntos, regenerar, "Tomar cota de los puntos" (`@dib3d`, el antiguo "Dib 3D",
+  mismo estado `dib3d`) y "Barra rápida" (`@barra`). El grupo Ver desapareció; Importar puntos / DXF / Tabla quedan solo en el ⋯.
+  **Barra rápida** (`mc-rapida`, a la derecha del lienzo, translúcida): reemplaza los botones sueltos ✋ / Regenerar / Deshacer;
+  lleva `RAPIDA_DEF` (distancia, ver todo, mano, deshacer, rehacer) y cada equipo escoge (localStorage `minicivil_rapida`, panel
+  `mc-rapida-elegir`, `DIB_SUELTAS` = lo que no está en ningún grupo) y la esconde con `mc-rapida-ver` (`minicivil_rapida_oculta`).
+  Botones con `data-accion` = id sin "@"; todo pasa por `accion(id)` (la mano también). **Fila de arriba**: el tema pasó al ⋯
+  (`SelectorTema`) y Drive es un punto de 28 px (`BotonNube({ punto: true })`, clase `mc-nube-punto`); la fila cabe en una línea
+  en el celular (lienzo +34 px). Nada cambió por dentro de las herramientas. Prueba `pruebas/barra.js` (17 revisiones, PC y celular).
 - **Regla de Brian (2026-10-24)**: "la opción de deshacer debe estar en todos los módulos donde se edite o dibuje algo". Y "antes
   de cambiar algo me avisas; cuando necesites escribir código me dices para autorizar". Y "tener todo simple, funcional, no hay
   que hacer 1000 líneas de código si con 100 basta".

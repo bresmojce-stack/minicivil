@@ -84,8 +84,7 @@ const path = require('path'), fs = require('fs'), os = require('os');
   ok(pintado.muestra && pintado.muestra.textos.length === 3 && /^\d+\.\d{3}$/.test(pintado.muestra.textos[1]) && /^[A-Za-z]/.test(pintado.muestra.textos[2]),
     'en el dibujo se ven número, cota y descripción: ' + JSON.stringify(pintado.muestra && pintado.muestra.textos));
   // deshacer los quita todos juntos
-  await p.click('.tv-dib-nav button[data-grupo=editar]'); const dh = await p.$('.tv-dib-hoja button[data-herr="@deshacer"]');
-  if (dh) { await dh.click(); } else { await p.click('.tv-dib-nav button[data-grupo=editar]'); await p.click('button[title^="Deshacer"]'); }
+  await p.click('.mc-rapida [data-accion=deshacer]');
   await p.waitForTimeout(300);
   ds = await datos();
   ok(ds[0].objs.length === 1, 'un solo Deshacer quita todos los puntos importados: quedan ' + ds[0].objs.length);
@@ -100,7 +99,7 @@ const path = require('path'), fs = require('fs'), os = require('os');
   ok(/2000\.000[\s\S]*1000\.000/.test(primeraEN), 'con "Este, Norte" se invierten las columnas en la revisión');
   await p.click('.tv-imp-dibujar'); await p.waitForTimeout(400);
   // ── 3. Lista de puntos: filtros ──
-  await p.click('.tv-dib-nav button[data-grupo=ver]'); await p.click('.tv-dib-hoja button[data-herr="@puntos"]'); await p.waitForTimeout(150);
+  await p.click('.tv-dib-nav button[data-grupo=herramientas]'); await p.click('.tv-dib-hoja button[data-herr="@puntos"]'); await p.waitForTimeout(150);
   const filas = () => p.$$eval('.tv-dib-lista .tv-dib-pt', r => r.length);
   ok(await filas() === 8, 'lista con los 8 puntos');
   await p.click('.tv-lp-chip:has-text("BORDE (2)")'); await p.waitForTimeout(100);

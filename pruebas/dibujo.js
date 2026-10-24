@@ -31,7 +31,7 @@ const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node22/lib/node_mod
     await p.click('.tv-dib-teclado button[type=submit]'); await p.waitForTimeout(150);
   }
   await p.click('.tv-dib-teclado button:has-text("Cerrar")');
-  await p.click('.tv-dib-nav button[data-grupo=ver]'); await p.click('.tv-dib-hoja button[data-herr="@todo"]'); await p.waitForTimeout(150);
+  await p.click('.mc-rapida [data-accion=todo]'); await p.waitForTimeout(150);
   console.log('2. puntos:', JSON.stringify((await objs()).map(o => o.nom + ' ' + o.y + ',' + o.x)));
   // mapa mundo→pantalla a partir de los dos puntos dibujados
   let pts, k;
@@ -73,7 +73,7 @@ const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node22/lib/node_mod
   await tap(...S(1005 + 0.15, 1003.75 + 0.1)); await tap(...S(1018.6667 - 0.1, 1014 - 0.15));
   console.log('7. entre cruces:', await p.$eval('.tv-dib-panel', d => d.innerText.split('\n').slice(0, 5).join(' | ')), '(esperado', Math.hypot(1018.6666667 - 1005, 1014 - 1003.75).toFixed(3) + ')');
   // 8. acotar el lado de abajo del rectángulo
-  await herr('medir', 'acotar');
+  await herr('herramientas', 'acotar');
   await mapa(); await tap(...S(1005, 1003)); await tap(...S(1022, 1003)); await tap(...S(1013, 1001));
   const cotas = (await objs()).filter(o => o.t === 'cota');
   console.log('8. cotas:', cotas.map(c => Math.hypot(c.b.x - c.a.x, c.b.y - c.a.y).toFixed(3) + ' sep ' + c.d.toFixed(2)).join(' ; '));
@@ -87,7 +87,7 @@ const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node22/lib/node_mod
   const n1 = (await objs()).length; await p.waitForTimeout(300);
   console.log('    botones barra:', await p.$$eval('.tv-dib-cmd button', bs => bs.map(b => b.innerText + '|' + b.querySelector('svg')?.innerHTML.slice(0, 30))));
   console.log('    HIST atras:', await p.evaluate(() => HIST.atras.length));
-  await p.click('.tv-dib-deshacer button[data-accion=deshacer]'); await p.waitForTimeout(200);
+  await p.click('.mc-rapida [data-accion=deshacer]'); await p.waitForTimeout(200);
   console.log('    HIST atras después:', await p.evaluate(() => HIST.atras.length), 'adelante', await p.evaluate(() => HIST.adelante.length));
   console.log('10. objetos:', n0, '→ borrar', n1, '→ deshacer', (await objs()).length);
   // 11. zoom con dos dedos (CDP) y con la rueda
@@ -101,14 +101,14 @@ const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node22/lib/node_mod
   console.log('11. pellizco: escala', antes, '→', despues, '| objetos no cambiaron:', (await objs()).length);
   if (!movil) { await p.mouse.move(caja.x, caja.y); await p.mouse.wheel(0, 600); await p.waitForTimeout(150); console.log('    rueda: escala', await esc()); }
   // 12. buscar punto
-  await p.click('.tv-dib-nav button[data-grupo=ver]'); await p.click('.tv-dib-hoja button[data-herr="@buscar"]');
+  await p.click('.tv-dib-nav button[data-grupo=herramientas]'); await p.click('.tv-dib-hoja button[data-herr="@buscar"]');
   await p.fill('.tv-dib-buscar input', 'P2');
   console.log('12. búsqueda P2:', await p.$$eval('.tv-dib-pt', d => d.map(x => x.innerText.replace(/\n/g, ' '))));
   await p.click('.tv-dib-pt button'); await p.waitForTimeout(150);
   const c2 = await p.$eval('.tv-dib-marca', c => { const r = c.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
   console.log('    marca en el centro del lienzo:', Math.abs(c2[0] - caja.x) < 3 && Math.abs(c2[1] - caja.y) < 3);
   await p.screenshot({ path: process.argv[3] + '_dib.png' });
-  await p.click('.tv-dib-nav button[data-grupo=ver]'); await p.click('.tv-dib-hoja button[data-herr="@todo"]'); await p.waitForTimeout(150);
+  await p.click('.mc-rapida [data-accion=todo]'); await p.waitForTimeout(150);
   await herr('medir', 'area'); await p.waitForTimeout(50); await mapa(); await tap(...S(1012, 1006)); await p.waitForTimeout(150);
   await p.screenshot({ path: process.argv[3] + '_todo.png' });
   // 13. DXF

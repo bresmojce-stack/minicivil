@@ -19,7 +19,7 @@ const path = require('path');
       localStorage.setItem('minicivil__t', String(Date.now() + 99999));
       localStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'dibujo' })); }, objs);
     await p.reload(); await p.waitForSelector('.tv-dib-svg'); await p.waitForTimeout(500);
-    await p.click('.tv-dib-nav button[data-grupo=ver]'); await p.click('.tv-dib-hoja button[data-herr="@todo"]'); await p.waitForTimeout(450);
+    await p.click('.mc-rapida [data-accion=todo]'); await p.waitForTimeout(450);
   };
   const cuenta = () => p.evaluate(() => {
     const svg = document.querySelector('.tv-dib-svg');

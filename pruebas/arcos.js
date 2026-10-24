@@ -91,7 +91,7 @@ const path = require('path');
       { id: 1, t: 'pl', c: true, v: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }, { x: 0, y: 10 }] },
       { id: 2, t: 'p', x: -6, y: -8, nom: 'A' }, { id: 3, t: 'p', x: 16, y: 18, nom: 'B' }] }] }]);
   await p.reload(); await p.waitForSelector('.tv-dib-svg'); await p.waitForTimeout(500);
-  await p.click('.tv-dib-nav button[data-grupo=ver]'); await p.click('.tv-dib-hoja button[data-herr="@todo"]'); await p.waitForTimeout(400);
+  await p.click('.mc-rapida [data-accion=todo]'); await p.waitForTimeout(400);
 
   const enPantalla = q => p.evaluate(c => { const rc = document.querySelector('.tv-dib-svg').getBoundingClientRect(), s = MC_DIB.aP(c); return { x: rc.left + s.X, y: rc.top + s.Y }; }, q);
   const herr = async (g, id) => { if (!(await p.$(`.tv-dib-hoja button[data-herr="${id}"]`))) await p.click(`.tv-dib-nav button[data-grupo=${g}]`);

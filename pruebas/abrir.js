@@ -32,7 +32,7 @@ const path = require('path');
     await p.click('.tv-dib-teclado button[type=submit]'); await p.waitForTimeout(150);
   }
   await p.click('.tv-dib-teclado button:has-text("Cerrar")');
-  await herr('ver', '@todo'); await p.waitForTimeout(150);
+  await p.click('.mc-rapida [data-accion=todo]'); await p.waitForTimeout(150);
   // los puntos se pintan en la imagen de fondo: su sitio en la pantalla lo da MC_DIB.aP (norte, este → píxeles del lienzo)
   const pts = await p.evaluate(() => { const r = document.querySelector('.tv-dib-svg').getBoundingClientRect();
     return [{ x: 1000, y: 1000 }, { x: 1040, y: 1030 }].map(q => { const s = MC_DIB.aP(q); return [r.left + s.X, r.top + s.Y]; }); });
@@ -50,8 +50,8 @@ const path = require('path');
   await p.keyboard.press('Escape'); const cerrar = await p.$('button:has-text("Cerrar")'); if (cerrar) await cerrar.click();
   // solo Claro y Oscuro: el botón de la barra va de uno al otro
   const temas = [];
-  for (let i = 0; i < 4; i++) { await p.click('button[data-accion=tema]'); await p.waitForTimeout(80); temas.push(await p.evaluate(() => document.documentElement.getAttribute('data-tema'))); }
-  ok(temas.join() === 'oscuro,claro,oscuro,claro', 'el botón de tema alterna Claro y Oscuro: ' + temas.join());
+  for (let i = 0; i < 4; i++) { if (!(await p.$('.tv-dib-mas'))) await p.click('.mc-mas'); await p.click(`.tv-dib-mas [data-tema-btn=${i % 2 ? 'claro' : 'oscuro'}]`); await p.waitForTimeout(80); temas.push(await p.evaluate(() => document.documentElement.getAttribute('data-tema'))); }
+  ok(temas.join() === 'oscuro,claro,oscuro,claro', 'el tema (en el menú ⋯) pasa de Claro a Oscuro: ' + temas.join());
   // celular: sin desplazamiento de lado
   if (movil) ok(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'sin desplazamiento de lado en celular');
   // recargar: el proyecto y el dibujo siguen

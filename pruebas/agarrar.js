@@ -58,7 +58,7 @@ const path = require('path');
     await p.waitForTimeout(350);
   };
 
-  await herr('ver', '@todo'); await p.waitForTimeout(400);
+  await p.click('.mc-rapida [data-accion=todo]'); await p.waitForTimeout(400);
   await herr('editar', 'mover');
   ok(/toca los objetos/.test(await cmd()), 'MOVER pide tocar los objetos: ' + await cmd());
 
@@ -115,11 +115,11 @@ const path = require('path');
   else ok(Math.abs(dx) > 1 || Math.abs(dy) > 1, 'se movió (' + dx.toFixed(3) + ', ' + dy.toFixed(3) + ' m)');
   ok(!/va agarrada/.test(await cmd()), 'al soltar se termina la operación: ' + await cmd());
   // un solo paso de deshacer
-  await herr('editar', '@deshacer'); await p.waitForTimeout(400);
+  await p.click('.mc-rapida [data-accion=deshacer]'); await p.waitForTimeout(400);
   ok(JSON.stringify((await pieza()).p) === antesPz, 'Deshacer la devuelve a donde estaba, en un solo paso');
 
   // ── 5. ensamblar: agarrar el cuadrado por una esquina y pegarlo a la esquina de la pieza (con imán) ──
-  await herr('ver', '@todo'); await p.waitForTimeout(400);
+  await p.click('.mc-rapida [data-accion=todo]'); await p.waitForTimeout(400);
   await herr('editar', 'mover');
   const cLado = await enPant({ x: 5, y: 60 });        // mitad del lado de abajo del cuadrado
   await toque(cLado.X, cLado.Y);

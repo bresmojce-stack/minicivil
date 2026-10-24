@@ -52,7 +52,7 @@ const path = require('path');
   await p.evaluate(() => { HIST.crudo.proyectos([{ id: 1, nombre: 'Z', creado: '', dibujos: [{ id: 4, nombre: 'Lejos', sig: 9, objs: [
     { id: 1, t: 'p', x: 1000000, y: 900000, nom: 'cerca' }, { id: 2, t: 'p', x: 1000010, y: 900000, nom: 'cerca2' },
     { id: 3, t: 'p', x: 1004000, y: 900000, nom: 'lejos' }] }] }]); }); await p.waitForTimeout(600);
-  await p.click('.tv-dib-nav button[data-grupo=ver]'); await p.click('.tv-dib-hoja button[data-herr="@todo"]'); await p.waitForTimeout(500);
+  await p.click('.mc-rapida [data-accion=todo]'); await p.waitForTimeout(500);
   ok((await pintado(p)).pts === 3, 'al encuadrar todo se pintan los tres puntos');
   const sitio = await enPantalla(p, { x: 1000000, y: 900000 });
   await p.mouse.move(sitio.x, sitio.y); await rueda(6, sitio); await p.waitForTimeout(400);   // acercar sobre "cerca"
@@ -79,13 +79,13 @@ const path = require('path');
       return n;
     }, png.toString('base64'));
   };
-  await p.click('.tv-dib-nav button[data-grupo=ver]'); await p.click('.tv-dib-hoja button[data-herr="@todo"]'); await p.waitForTimeout(600);   // todos a la vista: de lejos, sin textos
+  await p.click('.mc-rapida [data-accion=todo]'); await p.waitForTimeout(600);   // todos a la vista: de lejos, sin textos
   const nLejos = await pintado(p), pxLejos = await rojos(p);
   ok(nLejos.txt / nLejos.pts < 0.3 && pxLejos > 2000, 'de lejos, sin textos, las marcas de los puntos se ven en la pantalla (' + pxLejos + ' píxeles de marca, ' + nLejos.txt + '/' + nLejos.pts + ' textos/puntos)');
   // 1200 puntos: todos en la imagen y el svg casi vacío (antes eran miles de piezas sueltas)
   const nube = []; for (let i = 0; i < 1200; i++) { const a = rnd() * 6.28, r = Math.sqrt(rnd()) * 40; nube.push({ id: i + 1, t: 'p', x: 1000060 + r * Math.cos(a), y: 1000060 + r * Math.sin(a), z: 1500, nom: String(i + 1), col: '#0891B2' }); }
   await p.evaluate(v => { HIST.crudo.proyectos([{ id: 1, nombre: 'Z', creado: '', dibujos: [{ id: 5, nombre: 'Nube', sig: 1201, objs: v }] }]); }, nube); await p.waitForTimeout(600);
-  await p.click('.tv-dib-nav button[data-grupo=ver]'); await p.click('.tv-dib-hoja button[data-herr="@todo"]'); await p.waitForTimeout(600);
+  await p.click('.mc-rapida [data-accion=todo]'); await p.waitForTimeout(600);
   // en el svg solo quedan los defs (las tramas de los sombreados), nada por punto
   const conNube = await pintado(p), piezas = await p.$$eval('.tv-dib-capa > *:not(defs)', e => e.length);
   ok(conNube.pts > 1000 && piezas === 0, '1200 puntos: todos en la imagen y ninguna pieza suelta en el svg (' + conNube.pts + ' puntos pintados)');
@@ -159,12 +159,12 @@ const path = require('path');
   };
   await fuera('[data-accion="deshacer"]', 'el botón Quitar punto');
   await fuera('.tv-dib-nav [data-grupo]:nth-child(4)', 'la barra de abajo');
-  const despues = { n: await guardados(), escala: await escalaBarra(t), cmd: await t.textContent('.tv-dib-cmd'), hoja: !!(await t.$('.tv-dib-hoja')), quitar: await t.textContent('[data-accion="deshacer"]') };
-  ok(despues.n === antes.n && /segundo punto/.test(despues.cmd) && /Quitar punto/.test(despues.quitar), 'esos pellizcos no ponen puntos ni líneas y no quitan el punto que ya estaba (' + despues.n + ' objetos)');
+  const despues = { n: await guardados(), escala: await escalaBarra(t), cmd: await t.textContent('.tv-dib-cmd'), hoja: !!(await t.$('.tv-dib-hoja')), quitar: await t.getAttribute('[data-accion="deshacer"]', 'title') };
+  ok(despues.n === antes.n && /segundo punto/.test(despues.cmd) && /Quitar el último punto/.test(despues.quitar), 'esos pellizcos no ponen puntos ni líneas y no quitan el punto que ya estaba (' + despues.n + ' objetos)');
   ok(!despues.hoja && despues.escala !== antes.escala, 'el dedo de afuera no abre la barra de herramientas y la vista sí cambió (' + antes.escala + ' → ' + despues.escala + ')');
   // Regenerar imagen: el dibujo se arma de nuevo y se ve igual
   const g0 = await t.evaluateHandle(() => document.querySelector('.tv-dib-capa')), n0 = (await pintado(t)).pts;
-  await t.click('[data-accion="regenerar"]'); await t.waitForTimeout(300);
+  await t.click('.tv-dib-nav button[data-grupo=herramientas]'); await t.click('.tv-dib-hoja button[data-herr="@regenerar"]'); await t.waitForTimeout(300);
   ok(await t.evaluate(g => document.querySelector('.tv-dib-capa') !== g && document.querySelector('.tv-dib-capa').isConnected, g0) && (await pintado(t)).pts === n0,
     'Regenerar imagen arma el dibujo de nuevo (' + n0 + ' puntos)');
 

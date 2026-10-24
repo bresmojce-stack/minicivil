@@ -44,17 +44,19 @@ const path = require('path');
   const tocables = () => p.evaluate(c => {
     const cm = document.querySelector('.tv-dib-cmd'), rc = cm && cm.getBoundingClientRect();
     const enCinta = (x, y) => !!rc && x > rc.left - 8 && x < rc.right + 8 && y > rc.top - 8 && y < rc.bottom + 8;
+    const rb = document.querySelector('.mc-rapida').getBoundingClientRect();   // v37: barra rápida
+    const enBarra = (x, y) => x > rb.left - 12 && y > rb.top - 12 && y < rb.bottom + 12;
     const r = document.querySelector('.tv-dib-svg').getBoundingClientRect(), l = [];
     for (let i = 0; i < 25; i++) { const s = MC_DIB.aP({ x: 1000000 + (i % 5) * 10, y: 900000 + Math.floor(i / 5) * 10 });
       l.push({ nom: String(i + 1), x: r.left + s.X, y: r.top + s.Y }); }
     return l.filter(q => q.x > c.x + 20 && q.x < c.x + c.width - 20 && q.y > c.y + 20 && q.y < c.y + c.height - 20
-      && !(q.x > c.x + c.width - 190 && q.y > c.y + c.height - 170)     // botones flotantes y Deshacer
+      && !enBarra(q.x, q.y)                                             // barra rápida
       && !(q.x < c.x + 230 && q.y > c.y + c.height - 60)                // barra de escala
       && !enCinta(q.x, q.y)); }, caja);                                 // v26: la cinta de comando flota arriba
   let libres = await tocables();
   ok(Math.hypot(libres0.x - (await unPunto()).x, libres0.y - (await unPunto()).y) > 40, 'el dibujo se corrió con el dedo');
   if (libres.length < 2) {   // en pantallas angostas el arrastre puede dejarlos casi afuera: se encuadra todo
-    await herr('ver', '@todo'); await p.waitForTimeout(400); libres = await tocables();
+    await p.click('.mc-rapida [data-accion=todo]'); await p.waitForTimeout(400); libres = await tocables();
     await herr('dibujar', 'linea');
   }
   ok(libres.length >= 2, 'quedan puntos a la vista para tocarlos (' + libres.length + ')');
@@ -87,7 +89,7 @@ const path = require('path');
   const a5 = await estado();
   ok(a5.n === a4.n, 'en Superficie el arrastre no cambia el dibujo');
   // 6. Seleccionar varios conserva su recuadro
-  await herr('ver', '@todo'); await p.waitForTimeout(400);   // todos a la vista: el recuadro no depende de dónde quedó la vista
+  await p.click('.mc-rapida [data-accion=todo]'); await p.waitForTimeout(400);   // todos a la vista: el recuadro no depende de dónde quedó la vista
   await herr('editar', 'seleccionar');
   // el recuadro se hace alrededor de puntos que están a la vista
   const zona = await p.evaluate(() => { const r = document.querySelector('.tv-dib-svg').getBoundingClientRect(), qs = [];

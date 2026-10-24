@@ -39,7 +39,7 @@ const path = require('path');
     const r = cm.getBoundingClientRect(); return c.x > r.left - 8 && c.x < r.right + 8 && c.y > r.top - 8 && c.y < r.bottom + 8; }, q);
   const tocar = async q => { const s = await enPantalla(q); await p.mouse.click(s.x, s.y); await p.waitForTimeout(220); };
   const herr = async (g, id) => { await p.click(`.tv-dib-nav button[data-grupo=${g}]`); await p.click(`.tv-dib-hoja button[data-herr="${id}"]`); await p.waitForTimeout(150); };
-  await p.click('.tv-dib-nav button[data-grupo=ver]'); await p.click('.tv-dib-hoja button[data-herr="@todo"]'); await p.waitForTimeout(400);
+  await p.click('.mc-rapida [data-accion=todo]'); await p.waitForTimeout(400);
 
   // ── v26: el espacio ganado y que la cinta flotante NO se robe los toques del dibujo ──
   const caja0 = await (await p.$('.tv-dib-svg')).boundingBox();
@@ -58,13 +58,13 @@ const path = require('path');
   // el menú "⋯" guarda lo que antes ocupaba una fila entera, y todo sigue estando
   await p.click('.mc-mas'); await p.waitForTimeout(300);
   const enMas = await p.evaluate(() => [...document.querySelectorAll('.tv-dib-mas button')].map(b => b.textContent.replace(/\s+/g, ' ').trim()));
-  ok(['Nuevo', '✎ Renombrar', 'Duplicar', 'Borrar', 'Importar puntos', 'Tabla de puntos', 'DXF'].every(t => enMas.some(x => x.includes(t))),
+  ok(['Nuevo', '✎ Renombrar', 'Duplicar', 'Borrar', 'Importar puntos', 'Tabla de puntos', 'DXF', 'Claro', 'Oscuro'].every(t => enMas.some(x => x.includes(t))),
     'el menú ⋯ tiene nuevo, renombrar, duplicar, borrar, importar, tabla y DXF (' + enMas.length + ' botones)');
   await p.click('.tv-dib-mas button:has-text("Cerrar")'); await p.waitForTimeout(250);
   ok(!(await p.$('.tv-dib-mas')), 'el menú ⋯ se cierra');
 
   // ── apagado: la línea queda plana (como siempre) ──
-  const apagado = await p.getAttribute('.mc-dib3d', 'aria-pressed');
+  const apagado = await p.evaluate(() => localStorage.getItem('minicivil_dib3d') === 'true' ? 'true' : 'false');
   ok(apagado === 'false', 'el Dibujo 3D arranca apagado; lo prende Brian');
   await herr('dibujar', 'linea');
   await tocar(objs[0]); await tocar(objs[4]);
@@ -72,8 +72,8 @@ const path = require('path');
   ok(a1.ultimo.t === 'l' && a1.ultimo.a.z === undefined && a1.ultimo.b.z === undefined, 'apagado: la línea se pega a los puntos pero no toma cotas');
 
   // ── prendido: la línea toma la cota de cada punto ──
-  await p.click('.mc-dib3d'); await p.waitForTimeout(250);
-  ok((await p.getAttribute('.mc-dib3d', 'aria-pressed')) === 'true', 'el botón "Dib 3D" se prende');
+  await p.click('.tv-dib-nav button[data-grupo=herramientas]'); await p.click('.tv-dib-hoja button[data-herr="@dib3d"]'); await p.waitForTimeout(250);
+  ok((await p.evaluate(() => localStorage.getItem('minicivil_dib3d') === 'true' ? 'true' : 'false')) === 'true', '"Tomar cota de los puntos" (Herramientas) se prende');
   await herr('dibujar', 'linea');
   await tocar(objs[0]); await tocar(objs[8]);
   const a2 = await estado();
@@ -118,9 +118,9 @@ const path = require('path');
     'el DXF saca las cotas (grupo 30) de lo que se dibujó en 3D: ' + [...new Set(cotasDxf)].filter(z => z !== 0).slice(0, 4).join(', '));
 
   // ── se apaga y vuelve a dibujar plano; y se acuerda al recargar ──
-  await p.click('.mc-dib3d'); await p.waitForTimeout(200);
+  await p.click('.tv-dib-nav button[data-grupo=herramientas]'); await p.click('.tv-dib-hoja button[data-herr="@dib3d"]'); await p.waitForTimeout(200);
   await p.reload(); await p.waitForSelector('.tv-dib-svg'); await p.waitForTimeout(500);
-  ok((await p.getAttribute('.mc-dib3d', 'aria-pressed')) === 'false', 'al recargar, el equipo se acuerda de que quedó apagado');
+  ok((await p.evaluate(() => localStorage.getItem('minicivil_dib3d') === 'true' ? 'true' : 'false')) === 'false', 'al recargar, el equipo se acuerda de que quedó apagado');
 
   ok(!errs.length, 'sin errores' + (errs.length ? ': ' + errs.join(' | ') : ''));
   await b.close();
