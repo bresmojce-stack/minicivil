@@ -64,6 +64,24 @@ const path = require('path'), http = require('http'), fs = require('fs'), os = r
   await abrir(csv); await p.waitForTimeout(800);
   ok(/Dibujar 3 puntos/.test(await p.textContent('body')), 'unos puntos (.csv) abren la revisión de Importar puntos: "Dibujar 3 puntos"');
 
+  // ── v55: el mismo DWG por segunda vez sale de la copia del equipo (sin pasarlo ni leerlo) y dibuja exactamente lo mismo ──
+  // (se espera dentro de la página: waitForFunction con una función async da por buena la promesa sin esperarla)
+  const copiaLista = await p.evaluate(async () => { const t0 = performance.now(); while (performance.now() - t0 < 30000) {
+    for (const k of await TVDB.claves()) if (/^minicivil_planos:muestra_2018/.test(k) && !/:\d+$/.test(k) && (await TVDB.get(k)).listo) return true;
+    await new Promise(r => setTimeout(r, 200)); } return false; });
+  ok(copiaLista, 'al abrirlo la primera vez quedó la copia del equipo');
+  if (await p.$('.mc-volver')) await p.click('.mc-volver'); await p.waitForSelector('.mc-abrir-archivo');
+  const t1 = Date.now(); await abrir(path.join(raiz, 'pruebas', 'muestra_2018.dwg'));
+  await p.waitForSelector('.mc-dxf-aqui', { timeout: 60000 });
+  const panel2 = await p.textContent('.tv-dib-dxf');
+  ok(/copia del equipo/.test(panel2), 'la segunda vez sale de la copia del equipo (' + ((Date.now() - t1) / 1000).toFixed(1) + ' s): ' + ((panel2.match(/Abierto desde[^)]*\)/) || [''])[0]));
+  await p.click('.mc-dxf-aqui'); await p.waitForTimeout(600);
+  d = await datos();
+  const sinId = l => JSON.stringify(l.map(({ id, ...o }) => o)), objs2 = d[d.length - 1].dibujos[0].objs;
+  ok(objs2.length === objs.length && sinId(objs2) === sinId(objs), 'y dibuja exactamente lo mismo (' + objs2.length + ' objetos)');
+  // para la prueba sin internet, sin la copia (así lee el DWG con el lector guardado)
+  await p.evaluate(async () => { for (const k of await TVDB.claves()) if (String(k).startsWith('minicivil_planos')) await TVDB.del(k); });
+
   // ── sin internet: el lector de DWG quedó guardado ──
   await p.waitForFunction(async () => { const c = await caches.open('minicivil-libredwg-0.8.2'); return !!(await c.match('./lib/libredwg/wasm/libredwg-web.wasm')); }, null, { timeout: 60000 }).catch(() => {});
   // v48: la librería (3 archivos) en su espacio; el lector y el paso a DXF, que son de la app, con la versión
