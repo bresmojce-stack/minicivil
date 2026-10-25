@@ -49,7 +49,7 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 
 ## Al publicar (solo cuando Brian lo autorice)
 - Subir `TV_VERSION` en index.html, `CACHE_VERSION` en sw.js (ej. "2" y "minicivil-v2") y la versión del
-  `<title>` (hoy "Mini Civil v51").
+  `<title>` (hoy "Mini Civil v52").
 - `node pruebas/sintaxis.js` (sintaxis de cada `<script>` y versión igual en los dos archivos; corre también en
   GitHub en cada push a `main`, `.github/workflows/sintaxis.yml`).
 - Batería completa: `node pruebas/correr.js` (52 pruebas en PC, celular y tablet, también sin conexión con servidor real; `SOLO=nombre` corre algunas). Rápidas: `node pruebas/abrir.js` y `W=390 node pruebas/abrir.js` (PC y celular); `node pruebas/importar.js` si se tocaron los puntos o el DXF; `node pruebas/nube.js` si se tocó Drive o los datos.
@@ -74,6 +74,23 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 | PROYECTOS (Mini Civil) | **Espacio en el celular (v26)**: en la pestaña Dibujo no se dibuja `mc-barra-proy`; el botón de volver (`mc-volver`, solo la flecha) y `tv-acciones` (tema, Drive, guardado) van dentro de la fila del dibujo (`mc-barra-dib`), que `App` le pasa a `TabDibujo` en el prop `cabecera`. En las otras pestañas la fila sigue igual. En el Dibujo, nuevo/renombrar/duplicar/borrar/importar/tabla/DXF se fueron al menú `⋯` (`mc-mas`, panel `tv-dib-mas`, botones `mc-mas-*`), y la franja de comando `tv-dib-cmd` flota sobre el lienzo (`position: absolute`, ancho al contenido, `pointer-events: none` salvo en sus botones por la regla del `<style>`; se parte en varias líneas si hay muchos botones). El lienzo pasa de 479 a 601 px en el celular (del 57 % al 71 % de la pantalla). `proyectoNuevo` (`{ id, nombre, creado, dibujos }`), `useLocalProyectos` (guarda en `TV_KEY`, con deshacer), `copiaDeProyectos` (para `FalloApp`), `Logo`, `TarjetaNube`, `PantallaProyectos`, `App` (inicio = lista de proyectos; proyecto = pestañas `nav.tab`: Dibujo, Superficies…; desde la v22, dentro de un proyecto NO se dibuja la barra `tv-header`: el tema, Drive y el estado de guardado van en la fila del proyecto `mc-barra-proy`, y `tv-main` lleva `mc-sin-barra` para el margen de la franja de estado del celular. En el inicio la barra con el logo sigue), `FalloApp`, arranque y aviso de versión nueva |
 
 ## Estado y lo que sigue
+- Versión 52 (2026-10-25, Brian: "aplica todo lo del texto que nos haga falta", con el estudio de cómo logran fluidez AutoCAD Web y
+  Onshape; "publica"). (1) **La tarjeta gráfica pinta también de cerca**: con el zoom al máximo los 32 bits no alcanzaban y se
+  volvía al canvas (lento). Ahora cada coordenada (desde el origen `G.O`) va en dos números de 32 bits, alto + resto (`f32`), y el
+  centro de la vista también; el shader resta alto con alto y resto con resto (técnica de Cesium y los visores CAD). Medido en la PC
+  de Brian con UBE1801: de cerca 44–194 ms por cuadro (v51) → 16,7 ms; de lejos igual. La distancia para el tipo de línea vuelve a 0
+  cada 50 m (en 32 bits, una polilínea de kilómetros perdía el guion de muy cerca). (2) **Textos y puntos en la tarjeta**: los
+  textos con tamaño letra por letra con un atlas (`ATLAS`, `glifo`: la fuente a 64 px en un canvas de 2048, medidas en em; alineación
+  y giro como el canvas); los de más de `TX_TOPE` = 64 px en pantalla los pinta el canvas (`pintarTextos(x, m, desde)`) para que se
+  vean nítidos. Los puntos: círculo de 4,5 px o 3 si el texto no cabe (`dv`, distancia al vecino); sus textos los pinta el canvas,
+  solo los de la vista (por la rejilla). Con WebGL ya no hay foto: `motorGL().pintar(v, W, H, dpr, O, tope)` pinta todo en una pasada
+  (rellenos, textos, líneas, puntos). El umbral `GL_DESDE` cuenta también puntos y textos. (3) **El plano aparece por partes** la
+  primera vez (`parcial` de `tramosGL` tras los lotes 1, 2, 4, 8…; `G.vivo`); al editar se sigue viendo el anterior completo.
+  **No se hizo, y por qué**: leer el DXF en un Worker (el plano tiene que volver al hilo de la pantalla y pasar 223 000 objetos de
+  un hilo a otro congela de un golpe; la lectura por lotes ya deja pausas de menos de 0,1 s). Pendiente con boceto: pintar en un
+  Worker con OffscreenCanvas y WebGPU como AutoCAD Web (la lupa copia el canvas del fondo y dejaría de ver las líneas). Prueba
+  `pruebas/webgl.js` ampliada: de cerca a 60 km del origen la línea cae a menos de 3 px de su sitio, textos y puntos 98 % iguales al
+  canvas, y el plano aparece por partes.
 - Versión 51 (2026-10-25, `/ponytail-audit` sobre la v50; Brian: "arregla todo"): 7 hallazgos, los 7 arreglados. (1) La huella de
   `nubeSincronizar` ya no incluye los proyectos temporales (con un plano grande abierto armaba un texto de ~238 MB dos veces por
   sincronización: ~5 s quieta cada rato con Drive conectado). (2) `copiaAutomatica` deja fuera los temporales y, si lo que queda
