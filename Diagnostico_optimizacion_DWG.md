@@ -107,3 +107,21 @@ Importar cada copia (leer el DWG + dibujar): de 1,6 s la primera a 5,2 s la vig�
 | D | Fase 5.1: textos por tamaño (ya existe; revisar si sirve con 6 px) | Pequeño ajuste | pocas líneas |
 
 Cada paso se mide igual que aquí (misma tabla) y con la batería completa; el DXF de un dibujo normal debe salir idéntico.
+
+---
+
+# Parte 3 — Después de los pasos 2, 3 y 4 (v45 y v46)
+
+Misma prueba que la Parte 2 ("Propuesta muro" repetido; pantalla de celular; navegador de pruebas sin tarjeta gráfica).
+
+| Objetos | Acercar (ms por cuadro) v43 → v46 | Un toque v43 → v46 | Mover el cursor v43 → v46 | Memoria v43 → v46 |
+|---|---|---|---|---|
+| 8 753 | 21 → 19 | 0,07 → 0,02 s | 15 → 16 ms | 16 → 14 MB |
+| 43 765 | 107 → 17 | 0,30 → 0,01 s | 94 → 16 ms | 104 → 79 MB |
+| 87 530 | 220 → 17 | 0,48 → 0,02 s | 254 → 16 ms | 282 → 73 MB |
+| 175 060 | 697 → 32 | 1,40 → 0,03 s | 937 → 16 ms | 916 → 183 MB |
+
+- v45: todo lo de trazo, los rellenos y los textos de los planos se pintan en el canvas; durante un gesto se mueve la última foto
+  y al soltar se pinta nítida; imanes y toque por rejilla.
+- v46: los imanes se calculan solo de lo cercano (antes se guardaban todos: ~590 MB) y la rejilla va en arreglos de números.
+- Falta confirmarlo en el celular y la tablet de Brian, y con sus DWG de 18 y 22 MB.

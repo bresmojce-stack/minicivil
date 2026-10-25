@@ -49,7 +49,7 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 
 ## Al publicar (solo cuando Brian lo autorice)
 - Subir `TV_VERSION` en index.html, `CACHE_VERSION` en sw.js (ej. "2" y "minicivil-v2") y la versión del
-  `<title>` (hoy "Mini Civil v45").
+  `<title>` (hoy "Mini Civil v46").
 - `node pruebas/sintaxis.js` (sintaxis de cada `<script>` y versión igual en los dos archivos; corre también en
   GitHub en cada push a `main`, `.github/workflows/sintaxis.yml`).
 - Batería completa: `node pruebas/correr.js` (50 pruebas en PC, celular y tablet, también sin conexión con servidor real; `SOLO=nombre` corre algunas). Rápidas: `node pruebas/abrir.js` y `W=390 node pruebas/abrir.js` (PC y celular); `node pruebas/importar.js` si se tocaron los puntos o el DXF; `node pruebas/nube.js` si se tocó Drive o los datos.
@@ -74,6 +74,17 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 | PROYECTOS (Mini Civil) | **Espacio en el celular (v26)**: en la pestaña Dibujo no se dibuja `mc-barra-proy`; el botón de volver (`mc-volver`, solo la flecha) y `tv-acciones` (tema, Drive, guardado) van dentro de la fila del dibujo (`mc-barra-dib`), que `App` le pasa a `TabDibujo` en el prop `cabecera`. En las otras pestañas la fila sigue igual. En el Dibujo, nuevo/renombrar/duplicar/borrar/importar/tabla/DXF se fueron al menú `⋯` (`mc-mas`, panel `tv-dib-mas`, botones `mc-mas-*`), y la franja de comando `tv-dib-cmd` flota sobre el lienzo (`position: absolute`, ancho al contenido, `pointer-events: none` salvo en sus botones por la regla del `<style>`; se parte en varias líneas si hay muchos botones). El lienzo pasa de 479 a 601 px en el celular (del 57 % al 71 % de la pantalla). `proyectoNuevo` (`{ id, nombre, creado, dibujos }`), `useLocalProyectos` (guarda en `TV_KEY`, con deshacer), `copiaDeProyectos` (para `FalloApp`), `Logo`, `TarjetaNube`, `PantallaProyectos`, `App` (inicio = lista de proyectos; proyecto = pestañas `nav.tab`: Dibujo, Superficies…; desde la v22, dentro de un proyecto NO se dibuja la barra `tv-header`: el tema, Drive y el estado de guardado van en la fila del proyecto `mc-barra-proy`, y `tv-main` lleva `mc-sin-barra` para el margen de la franja de estado del celular. En el inicio la barra con el logo sigue), `FalloApp`, arranque y aviso de versión nueva |
 
 ## Estado y lo que sigue
+- Versión 46 (2026-10-25, Paso 4 del plan de Brian, memoria): medido con el muestreo de memoria del navegador, de ~730 MB con
+  175 060 objetos los datos del plano eran ~11 MB; ~590 MB eran la lista de **todos** los imanes (`imanesDibujo` sobre todo el
+  dibujo, más su rejilla) y ~118 MB la rejilla de objetos en listas de JavaScript. Ahora: (1) `conIman` saca los imanes en el
+  momento de `objsCerca(p, (tolPx + 3) / k)` con `imanesDibujo(cercanos, { ...im, cruce: false }, temp)` (mismo orden de siempre:
+  extremos, puntos ya puestos, medios, centros, abscisas) y después los cruces de `crucesFijos` (solo en dibujos de hasta 600 trozos,
+  como siempre; se cuentan hasta pasar de 600). Todo imán de un objeto cae dentro de su caja. (2) `rejillaDe` guarda las cajas en un
+  `Float64Array` y las casillas en un `Int32Array` con su índice de inicio (dos pasadas: contar y llenar). Medido (pantalla de
+  celular): memoria con 175 060 objetos 916 (v43) → 731 (v45) → 183 MB; un toque 1,40 → 0,16 → 0,03 s; con 87 530, 282 → 73 MB.
+  NO se hizo `Float64Array` para los vértices (ahorraría ~10 MB y cambia el formato de los datos guardados): Brian lo sabe. Batería:
+  50 de 50; DXF idéntico byte por byte. Ojo: `node pruebas/dibujo.js` sin carpeta de salida deja `undefined.dxf`/`undefined_*.png`
+  en la raíz: no subirlos (hacer `git add` con nombres, no `-A`).
 - Versión 45 (2026-10-25, plan de Brian "Plan de Ejecución Paso a Paso", pasos 2 y 3; tablas en `Diagnostico_optimizacion_DWG.md`):
   **motor del Dibujo en canvas**. (A) `limitesDe(pts)` en vez de `Math.min(...lista)`, que con más de ~100 000 números tumbaba
   `verTodo`, `crearDXF` y `encuadrarVentana`. (B) `rejillaDe(n, cajaDe)` (casillas de 256 × 256 sobre la caja del dibujo; lo que cubre
