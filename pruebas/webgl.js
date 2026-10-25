@@ -2,18 +2,24 @@
 // con el canvas de siempre (window.MC_SIN_GL) y se compara qué píxeles quedan pintados. WebGL por software (SwiftShader).
 // v52: también con el zoom al máximo y a 60 km del origen de los tramos (antes de cerca se pasaba al canvas): la línea debe
 // caer en el mismo sitio que en el canvas.
-//   node pruebas/webgl.js [index.html]
+// v53: con WEBGPU=1 lo mismo con WebGPU (por software, SwiftShader): la página se sirve por http, porque WebGPU solo existe ahí.
+//   node pruebas/webgl.js [index.html]      WEBGPU=1 node pruebas/webgl.js [index.html]
 const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node22/lib/node_modules/playwright');
-const path = require('path');
+const path = require('path'), http = require('http'), fs = require('fs');
+const WGPU = !!process.env.WEBGPU, MOTOR = WGPU ? 'webgpu' : 'webgl';
 (async () => {
   const archivo = path.resolve(process.argv[2] || path.join(__dirname, '..', 'index.html'));
-  const b = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+  const b = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'].concat(WGPU ? ['--enable-unsafe-webgpu', '--use-webgpu-adapter=swiftshader'] : []) });
+  let url = 'file://' + archivo, srv = null;
+  if (WGPU) { srv = http.createServer((q, r) => { const f = path.join(path.dirname(archivo), decodeURIComponent(q.url.split('?')[0]) === '/' ? path.basename(archivo) : decodeURIComponent(q.url.split('?')[0]));
+      if (!fs.existsSync(f) || fs.statSync(f).isDirectory()) { r.writeHead(404); return r.end(); } r.writeHead(200, { 'Content-Type': /\.html$/.test(f) ? 'text/html; charset=utf-8' : /\.js$/.test(f) ? 'text/javascript' : 'application/octet-stream' }); fs.createReadStream(f).pipe(r); });
+    await new Promise(o => srv.listen(0, o)); url = 'http://localhost:' + srv.address().port + '/'; }
   const p = await (await b.newContext({ viewport: { width: 900, height: 800 } })).newPage();
   const errs = []; p.on('pageerror', e => errs.push(e.message)); p.on('console', m => { if (m.type() === 'error') errs.push(m.text().slice(0, 160)); });
   let fallas = 0; const ok = (bien, t) => { console.log((bien ? 'bien  ' : 'FALLA ') + t); if (!bien) fallas++; };
   // lo que va mostrando el Dibujo mientras prepara el plano (v52: aparece por partes)
   await p.addInitScript(() => { window.__vistos = []; setInterval(() => { const g = window.MC_DIB && MC_DIB.gl; if (g) window.__vistos.push(g.listo ? -1 : g.tramos); }, 5); });
-  await p.goto('file://' + archivo); await p.waitForSelector('header.tv-header');
+  await p.goto(url); await p.waitForSelector('header.tv-header');
   // 25 000 objetos lejos del 0,0 (como un plano en coordenadas de verdad): líneas, polilíneas con curva, círculos, arcos
   // discontinuos, figuras rellenas y rayadas
   const objs = await p.evaluate(() => { const o = []; for (let i = 0; i < 25000; i++) { const x = 1e6 + (i % 160) * 6, y = 2e6 + Math.floor(i / 160) * 6, t = i % 6;
@@ -46,7 +52,7 @@ const path = require('path');
     return { a, ambos, n: conGL.px.reduce((s, v) => s + v, 0), bien: a > min && ambos / a > 0.9, pct: a ? Math.round(ambos / a * 100) : 0 }; };
 
   const conGL = await imagen(objs, false, null, 7, -120), sinGL = await imagen(objs, true, null, 7, -120);
-  ok(conGL.info.gl && conGL.info.gl.listo && conGL.info.gl.tramos > 100000, 'el dibujo grande usa la tarjeta gráfica (' + JSON.stringify(conGL.info.gl) + ')');
+  ok(conGL.info.gl && conGL.info.gl.motor === MOTOR && conGL.info.gl.listo && conGL.info.gl.tramos > 100000, 'el dibujo grande usa la tarjeta gráfica con ' + MOTOR + ' (' + JSON.stringify(conGL.info.gl) + ')');
   ok(conGL.info.parcial, 'el plano va apareciendo mientras se prepara (antes de estar listo ya se ven tramos)');
   ok(!sinGL.info.gl, 'con MC_SIN_GL se pinta con el canvas de siempre');
   const c1 = comparar(conGL, sinGL, 1000);
@@ -58,7 +64,7 @@ const path = require('path');
   const lejos = [{ id: 'lejos', t: 'l', a: { x: 1e6 - 60000, y: 2e6 - 60000 }, b: { x: 1e6 - 59999, y: 2e6 - 60000 }, col: '#DC2626' }].concat(objs);
   const mira = { x: 1e6 + 2.0003, y: 2e6 + 1.5002 };   // a la mitad de la primera línea roja
   const cerca = await imagen(lejos, false, mira, 9, -1000), g = cerca.info;
-  ok(g.gl && g.gl.listo, 'de cerca sigue pintando la tarjeta gráfica (' + JSON.stringify(g.gl) + ')');
+  ok(g.gl && g.gl.motor === MOTOR && g.gl.listo, 'de cerca sigue pintando la tarjeta gráfica (' + JSON.stringify(g.gl) + ')');
   // cada píxel pintado, a qué distancia (en px de pantalla) queda de la línea calculada con los datos de 64 bits
   const ux = g.b.X - g.a.X, uy = g.b.Y - g.a.Y, L = Math.hypot(ux, uy); let n = 0, junto = 0;
   cerca.px.forEach((v, i) => { if (!v) return; n++; const X = (i % g.w) / g.dpr, Y = Math.floor(i / g.w) / g.dpr;
@@ -70,10 +76,10 @@ const path = require('path');
     if (i % 2) o.push({ id: 't' + i, t: 'tx', p: { x, y }, s: 'K' + (i % 97) + 'é', h: 1.6, rot: (i % 4) * 0.5, al: AL[i % 5], col: i % 3 ? '#0F172A' : '#2563EB' });
     else o.push({ id: 'p' + i, t: 'p', x: x + 3, y: y + 3, nom: String(i), col: '#DC2626' }); } return o; });
   const tGL = await imagen(tp, false, null, 6, -120), tCv = await imagen(tp, true, null, 6, -120);
-  ok(tGL.info.gl && tGL.info.gl.listo && tGL.info.gl.puntos === 12000 && tGL.info.gl.letras > 30000, 'puntos y letras en la tarjeta (' + JSON.stringify(tGL.info.gl) + ')');
+  ok(tGL.info.gl && tGL.info.gl.motor === MOTOR && tGL.info.gl.listo && tGL.info.gl.puntos === 12000 && tGL.info.gl.letras > 30000, 'puntos y letras en la tarjeta (' + JSON.stringify(tGL.info.gl) + ')');
   const c3 = comparar(tGL, tCv, 1000);
   ok(c3.a > 1000 && c3.ambos / c3.a > 0.8 && c3.n < c3.a * 1.4, 'textos y puntos caen donde los pinta el canvas (' + c3.pct + ' % de ' + c3.a + ' píxeles; WebGL ' + c3.n + ')');
   ok(!errs.length, 'sin errores en la página' + (errs.length ? ': ' + errs.join(' | ') : ''));
-  await b.close();
+  await b.close(); if (srv) srv.close();
   console.log(fallas ? fallas + ' falla(s).' : 'Todo bien.'); process.exit(fallas ? 1 : 0);
 })();

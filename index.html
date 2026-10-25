@@ -2649,6 +2649,136 @@ void main() { float a = min(texture(t, vuv).a * 1.25, 1.0) * vc.a; if (a <= 0.0)
   c.addEventListener("webglcontextlost", e => { e.preventDefault(); M.perdido = true; });
   return M;
 }
+// v53: WebGPU, la tecnología gráfica nueva que usa AutoCAD Web; donde el navegador no la tiene (o falla) queda WebGL 2, y sin
+// ninguna de las dos, el canvas de siempre. El dispositivo se pide una vez al abrir (es asíncrono): mientras llega, el Dibujo usa
+// lo de antes. `window.MC_SIN_GPU` la apaga (para comparar en las pruebas). GPU.malo = falló una vez: no se vuelve a intentar.
+const GPU = { dev: null, pend: null, malo: false, fmt: null };
+function iniciarGPU() {
+  if (GPU.dev || GPU.pend || GPU.malo || window.MC_SIN_GPU || !(typeof navigator !== "undefined" && navigator.gpu)) return GPU.pend;
+  GPU.pend = navigator.gpu.requestAdapter().then(a => a ? a.requestDevice() : null).then(d => {
+    GPU.pend = null; if (!d) { GPU.malo = true; return; }
+    GPU.dev = d; GPU.fmt = navigator.gpu.getPreferredCanvasFormat();
+    d.lost.then(() => { GPU.dev = null; GPU.malo = true; });
+  }).catch(e => { console.warn("Mini Civil · WebGPU no arrancó", e); GPU.pend = null; GPU.malo = true; });
+  return GPU.pend;
+}
+// los mismos programas de motorGL, en WGSL: comunes a todos la vista (centro en alto + resto, escala, tamaño, px por punto, tope de
+// los textos); cada capa lleva su color y su tipo de línea (guardados una vez al cargar)
+const WGSL_V = `struct V { ch: vec2f, cl: vec2f, res: vec2f, k: f32, dpr: f32, tope: f32, txt: f32, p0: f32, p1: f32 };
+@group(0) @binding(0) var<uniform> v: V;
+fn rte(h: vec2f, l: vec2f) -> vec2f { return ((h - v.ch) + (l - v.cl)) * v.k; }
+fn clip(p: vec2f) -> vec4f { return vec4f(p / (v.res * 0.5), 0.0, 1.0); }
+`;
+const WGSL_L = WGSL_V + `struct L { col: vec4f, w: f32, ng: f32, tot: f32, ray: f32, gu: array<vec4f, 3> };
+@group(1) @binding(0) var<uniform> l: L;
+struct SL { @builtin(position) pos: vec4f, @location(0) dist: f32 };
+@vertex fn vsL(@location(0) q: vec2f, @location(1) sh: vec4f, @location(2) sl: vec4f, @location(3) d0: f32) -> SL {
+  let a = rte(sh.xy, sl.xy); let b = rte(sh.zw, sl.zw); let d = b - a; let ln = length(d);
+  var u = vec2f(1.0, 0.0); if (ln > 0.0) { u = d / ln; }
+  let n = vec2f(-u.y, u.x); let e = q.x * 2.0 - 1.0;
+  var o: SL; o.pos = clip(mix(a, b, q.x) + u * e * l.w + n * q.y * l.w); o.dist = d0 * v.k + q.x * ln + e * l.w; return o;
+}
+@fragment fn fsL(i: SL) -> @location(0) vec4f {
+  if (l.ng > 0.0) { let m = i.dist - l.tot * floor(i.dist / l.tot); var a = 0.0; var raya = true;
+    for (var j = 0; j < 12; j++) { if (f32(j) >= l.ng) { break; } a += l.gu[j / 4][j % 4]; if (m < a) { break; } raya = !raya; }
+    if (!raya) { discard; } }
+  return vec4f(l.col.rgb * l.col.a, l.col.a);
+}
+@vertex fn vsF(@location(0) ph: vec2f, @location(1) pl: vec2f) -> @builtin(position) vec4f { return clip(rte(ph, pl)); }
+@fragment fn fsF(@builtin(position) pos: vec4f) -> @location(0) vec4f {
+  if (l.ray > 0.5) { let q = vec2f(pos.x, v.res.y * v.dpr - pos.y) / v.dpr; let m = (q.x - q.y) * 0.70710678; if (m - 9.0 * floor(m / 9.0) > 1.3) { discard; } }
+  return vec4f(l.col.rgb * l.col.a, l.col.a);
+}
+struct SP { @builtin(position) pos: vec4f, @location(0) e: vec2f, @location(1) r: f32, @location(2) c: vec4f };
+@vertex fn vsP(@location(0) q: vec2f, @location(1) ph: vec2f, @location(2) pl: vec2f, @location(3) dv: f32, @location(4) col: vec4f) -> SP {
+  var o: SP; o.r = select(3.0, 4.5, dv * v.k >= v.txt); o.e = (q * 2.0 - 1.0) * (o.r + 1.0); o.c = col;
+  o.pos = clip(rte(ph, pl) + o.e); return o;
+}
+@fragment fn fsP(i: SP) -> @location(0) vec4f { let a = clamp(i.r - length(i.e) + 0.5, 0.0, 1.0); if (a <= 0.0) { discard; } return vec4f(i.c.rgb * i.c.a, i.c.a) * a; }
+`;
+const WGSL_T = WGSL_V + `@group(1) @binding(0) var tx: texture_2d<f32>; @group(1) @binding(1) var sm: sampler;
+struct ST { @builtin(position) pos: vec4f, @location(0) uv: vec2f, @location(1) c: vec4f };
+@vertex fn vsT(@location(0) q: vec2f, @location(1) th: vec2f, @location(2) tl: vec2f, @location(3) g: vec4f, @location(4) rh: vec2f, @location(5) uv: vec4f, @location(6) col: vec4f) -> ST {
+  var o: ST; o.uv = mix(uv.xy, uv.zw, q); o.c = col; let px = rh.y * v.k;
+  if (px < 2.5 || px > v.tope) { o.pos = vec4f(2.0, 2.0, 2.0, 1.0); return o; }
+  let f = (g.xy + q * g.zw) * px; let c = cos(rh.x); let s = sin(rh.x);
+  o.pos = clip(rte(th, tl) + vec2f(c * f.x - s * f.y, s * f.x + c * f.y)); return o;
+}
+@fragment fn fsT(i: ST) -> @location(0) vec4f { let a = min(textureSample(tx, sm, i.uv).a * 1.25, 1.0) * i.c.a; if (a <= 0.0) { discard; } return vec4f(i.c.rgb * a, a); }
+`;
+function motorGPU(dev) {
+  const c = document.createElement("canvas"), ctx = c.getContext("webgpu"); if (!ctx) return null;
+  ctx.configure({ device: dev, format: GPU.fmt, alphaMode: "premultiplied" });
+  const M = { c, perdido: false, gpu: true };
+  dev.pushErrorScope("validation");
+  const U = GPUBufferUsage, mL = dev.createShaderModule({ code: WGSL_L }), mT = dev.createShaderModule({ code: WGSL_T });
+  const bgl = (entradas) => dev.createBindGroupLayout({ entries: entradas });
+  const bV = bgl([{ binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: {} }]);
+  const bC = bgl([{ binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: {} }]);
+  const bT = bgl([{ binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: {} }, { binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: {} }]);
+  const f2 = (loc, off) => ({ shaderLocation: loc, offset: off, format: "float32x2" }), f4 = (loc, off) => ({ shaderLocation: loc, offset: off, format: "float32x4" });
+  const quadB = (n) => ({ arrayStride: 8, stepMode: "vertex", attributes: [f2(0, 0)] });
+  const mezcla = { color: { srcFactor: "one", dstFactor: "one-minus-src-alpha" }, alpha: { srcFactor: "one", dstFactor: "one-minus-src-alpha" } };
+  const tubo = (mod, vs, fs, grupos, buffers, topo) => dev.createRenderPipeline({ layout: dev.createPipelineLayout({ bindGroupLayouts: grupos }),
+    vertex: { module: mod, entryPoint: vs, buffers }, fragment: { module: mod, entryPoint: fs, targets: [{ format: GPU.fmt, blend: mezcla }] },
+    primitive: { topology: topo }, multisample: { count: 4 } });
+  const pL = tubo(mL, "vsL", "fsL", [bV, bC], [quadB(), { arrayStride: 36, stepMode: "instance", attributes: [f4(1, 0), f4(2, 16), { shaderLocation: 3, offset: 32, format: "float32" }] }], "triangle-strip");
+  const pF = tubo(mL, "vsF", "fsF", [bV, bC], [{ arrayStride: 16, stepMode: "vertex", attributes: [f2(0, 0), f2(1, 8)] }], "triangle-list");
+  const pP = tubo(mL, "vsP", "fsP", [bV], [quadB(), { arrayStride: 36, stepMode: "instance", attributes: [f2(1, 0), f2(2, 8), { shaderLocation: 3, offset: 16, format: "float32" }, f4(4, 20)] }], "triangle-strip");
+  const pT = tubo(mT, "vsT", "fsT", [bV, bT], [quadB(), { arrayStride: 72, stepMode: "instance", attributes: [f2(1, 0), f2(2, 8), f4(3, 16), f2(4, 32), f4(5, 40), f4(6, 56)] }], "triangle-strip");
+  const bufDe = (datos, uso) => { const b = dev.createBuffer({ size: Math.max(16, Math.ceil(datos.byteLength / 4) * 4), usage: uso | U.COPY_DST });
+    dev.queue.writeBuffer(b, 0, datos.buffer, datos.byteOffset, datos.byteLength); return b; };
+  const quad = bufDe(new Float32Array([0, -1, 0, 1, 1, -1, 1, 1]), U.VERTEX), quad01 = bufDe(new Float32Array([0, 0, 0, 1, 1, 0, 1, 1]), U.VERTEX);
+  const vista = dev.createBuffer({ size: 48, usage: U.UNIFORM | U.COPY_DST });
+  const gV = dev.createBindGroup({ layout: bV, entries: [{ binding: 0, resource: { buffer: vista } }] });
+  const sm = dev.createSampler({ magFilter: "linear", minFilter: "linear", mipmapFilter: "linear" });
+  let tex = null, gT = null, texVer = -1, msaa = null;
+  dev.popErrorScope().then(e => { if (e) { console.error("Mini Civil · WebGPU", e.message); M.perdido = true; GPU.malo = true; } });
+  dev.addEventListener("uncapturederror", e => { console.error("Mini Civil · WebGPU", e.error && e.error.message); M.perdido = true; GPU.malo = true; });
+  // el atlas de letras, con sus versiones achicadas (WebGPU no las arma solo): sin ellas el texto chico se ve granulado
+  const subirAtlas = () => {
+    const n = Math.log2(ATLAS.c.width) + 1;
+    if (!tex) { tex = dev.createTexture({ size: [ATLAS.c.width, ATLAS.c.height], format: "rgba8unorm", mipLevelCount: n,
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT });
+      gT = dev.createBindGroup({ layout: bT, entries: [{ binding: 0, resource: tex.createView() }, { binding: 1, resource: sm }] }); }
+    for (let i = 0, s = ATLAS.c.width; i < n; i++, s = Math.max(1, s >> 1)) {
+      let src = ATLAS.c; if (i) { src = document.createElement("canvas"); src.width = src.height = s; src.getContext("2d").drawImage(ATLAS.c, 0, 0, s, s); }
+      dev.queue.copyExternalImageToTexture({ source: src }, { texture: tex, mipLevel: i }, [s, s]); }
+    texVer = ATLAS.ver; };
+  const colorCapa = (col, w, gu, tot, ray) => { const f = new Float32Array(20); f.set(col, 0); f[4] = w; f[5] = gu.length; f[6] = tot || 1; f[7] = ray; f.set(gu, 8);
+    const b = bufDe(f, U.UNIFORM); return { b, g: dev.createBindGroup({ layout: bC, entries: [{ binding: 0, resource: { buffer: b } }] }) }; };
+  const rgba = colorRGBA();
+  let capas = [], fondos = [], puntos = null, letras = null;
+  M.cargar = r => {
+    capas.concat(fondos).forEach(x => { x.b.destroy(); x.u.b.destroy(); }); if (puntos) puntos.b.destroy(); if (letras) letras.b.destroy();
+    capas = []; fondos = []; puntos = letras = null;
+    if (!r) return;
+    r.rellenos.forEach(q => { if (q.n) fondos.push({ b: bufDe(q.f.subarray(0, q.n * 4), U.VERTEX), n: q.n, u: colorCapa(rgba(q.col), 0, [], 1, q.rayado ? 1 : 0) }); });
+    r.grupos.forEach(g => { if (!g.n) return;
+      let gu = numsGuion(g.gu); if (gu.length % 2) gu = gu.concat(gu);   // como setLineDash: una lista impar se repite
+      const tot = gu.reduce((a, x) => a + x, 0); gu = tot > 0 ? gu.slice(0, 12) : [];
+      capas.push({ b: bufDe(g.f.subarray(0, g.n * 9), U.VERTEX), n: g.n, u: colorCapa(rgba(g.col), g.an / 2, gu, tot, 0) }); });
+    if (r.pts.n) puntos = { b: bufDe(r.pts.f.subarray(0, r.pts.n * 9), U.VERTEX), n: r.pts.n };
+    if (r.txt.n) { letras = { b: bufDe(r.txt.f.subarray(0, r.txt.n * 18), U.VERTEX), n: r.txt.n }; if (texVer !== ATLAS.ver) subirAtlas(); }
+  };
+  M.pintar = (v, W, H, dpr, O, tope) => {
+    const aw = Math.max(1, Math.round(W * dpr)), ah = Math.max(1, Math.round(H * dpr));
+    if (c.width !== aw || c.height !== ah || !msaa) { c.width = aw; c.height = ah; if (msaa) msaa.destroy();
+      msaa = dev.createTexture({ size: [aw, ah], sampleCount: 4, format: GPU.fmt, usage: GPUTextureUsage.RENDER_ATTACHMENT }); }
+    const x = v.cx - O.x, y = v.cy - O.y, hx = f32(x), hy = f32(y);
+    dev.queue.writeBuffer(vista, 0, new Float32Array([hx, hy, x - hx, y - hy, W, H, v.k, dpr, tope, TXT_PX, 0, 0]));
+    const enc = dev.createCommandEncoder(), pase = enc.beginRenderPass({ colorAttachments: [{ view: msaa.createView(), resolveTarget: ctx.getCurrentTexture().createView(),
+      clearValue: { r: 0, g: 0, b: 0, a: 0 }, loadOp: "clear", storeOp: "discard" }] });
+    pase.setBindGroup(0, gV);
+    if (fondos.length) { pase.setPipeline(pF); fondos.forEach(q => { pase.setBindGroup(1, q.u.g); pase.setVertexBuffer(0, q.b); pase.draw(q.n); }); }
+    if (letras && gT) { pase.setPipeline(pT); pase.setBindGroup(1, gT); pase.setVertexBuffer(0, quad01); pase.setVertexBuffer(1, letras.b); pase.draw(4, letras.n); }
+    if (capas.length) { pase.setPipeline(pL); pase.setVertexBuffer(0, quad); capas.forEach(q => { pase.setBindGroup(1, q.u.g); pase.setVertexBuffer(1, q.b); pase.draw(4, q.n); }); }
+    if (puntos) { pase.setPipeline(pP); pase.setVertexBuffer(0, quad01); pase.setVertexBuffer(1, puntos.b); pase.draw(4, puntos.n); }
+    pase.end(); dev.queue.submit([enc.finish()]);
+  };
+  M.tramos = () => capas.reduce((a, x) => a + x.n, 0); M.puntos = () => puntos ? puntos.n : 0; M.letras = () => letras ? letras.n : 0;
+  return M;
+}
 // Colores que se pueden poner a cualquier objeto, con su número de color de AutoCAD (ACI)
 const DIB_COLORES = [["#0F172A", "Negro", 7], ["#DC2626", "Rojo", 1], ["#EA580C", "Naranja", 30], ["#CA8A04", "Amarillo", 2], ["#16A34A", "Verde", 3],
   ["#0891B2", "Cian", 4], ["#2563EB", "Azul", 5], ["#7C3AED", "Morado", 200], ["#DB2777", "Rosado", 6], ["#92400E", "Café", 34], ["#64748B", "Gris", 8]];
@@ -4641,9 +4771,14 @@ function TabDibujo({ proy, onChange, onArchivo, onSupers, cabecera, modoSup, ver
     if (G.vis !== visibles) { G.vis = visibles; G.lista = visibles.filter(o => alCanvas(o) || conRelleno(o) || o.t === "p" || (o.t === "tx" && o.h)); }   // v52: también puntos y textos
     if (G.lista.length <= GL_DESDE || G.m === false || window.MC_SIN_GL) {   // MC_SIN_GL: para comparar en las pruebas
       G.armando = null; if (G.m && G.n) { G.m.cargar(null); G.n = 0; G.deps = null; G.vivo = false; } return null; }
-    if (!G.m) try { G.m = motorGL() || false; } catch (e) { console.error("Mini Civil · WebGL no arrancó", e); G.m = false; }
+    // v53: primero WebGPU (si el navegador la tiene; mientras se pide el dispositivo se pinta como antes), si no WebGL 2
+    const motor = () => { if (GPU.dev && !GPU.malo && !window.MC_SIN_GPU) try { const m = motorGPU(GPU.dev); if (m) return m; } catch (e) { console.error("Mini Civil · WebGPU", e); GPU.malo = true; }
+      return motorGL() || false; };
+    if (!G.m) { const espera = iniciarGPU();
+      if (espera) { if (!G.esperaGPU) { G.esperaGPU = true; espera.then(() => { G.esperaGPU = false; fondoRef.current.deps = null; if (pintarRef.current) pintarRef.current(); }); } return null; }
+      try { G.m = motor(); } catch (e) { console.error("Mini Civil · WebGL no arrancó", e); G.m = false; } }
     if (G.m && G.m.perdido) { G.m = null; G.deps = null; G.armando = null; G.vivo = false; G.perdidas = (G.perdidas || 0) + 1;   // el celular le quitó la tarjeta a la app
-      if (G.perdidas <= 3) try { G.m = motorGL() || false; } catch (_) { G.m = false; } else G.m = false; }   // (cámara, otra app): se arma de nuevo
+      if (G.perdidas <= 3) try { G.m = motor(); } catch (_) { G.m = false; } else G.m = false; }   // (cámara, otra app; si fue WebGPU, sigue con WebGL): se arma de nuevo
     if (!G.m) { G.deps = null; G.vivo = false; return null; }
     const deps = [visibles, oscuro];
     if ((!G.deps || G.deps[0] !== deps[0] || G.deps[1] !== deps[1]) && !(G.armando && G.armando[0] === deps[0] && G.armando[1] === deps[1])) {
@@ -4800,7 +4935,7 @@ function TabDibujo({ proy, onChange, onArchivo, onSupers, cabecera, modoSup, ver
     });
     // para las pruebas y para revisar en obra: dónde cae un punto del terreno en la pantalla y cuántos se pintaron
     try { window.MC_DIB = { aP: q => aP(q), pts: nPts, txt: nTxt, muestra, trazos: nTrazos, textos: nTxtPlano, muestraTx: F.muestraTx, estilos: caminosRef.current.grupos ? caminosRef.current.grupos.size : 0,
-      gl: G ? { listo: !!G.deps, tramos: G.m.tramos(), puntos: G.m.puntos(), letras: G.m.letras(), ms: G.ms } : null }; } catch (_) {}
+      gl: G ? { motor: G.m.gpu ? "webgpu" : "webgl", listo: !!G.deps, tramos: G.m.tramos(), puntos: G.m.puntos(), letras: G.m.letras(), ms: G.ms } : null }; } catch (_) {}
   };
   // la lupa copia la imagen de fondo ampliada alrededor de la mira (así se ven los puntos, que ya no están en el svg)
   const pintarLupa = () => {
