@@ -2385,20 +2385,24 @@ const trazadorDe = x => (g, P, esc) => { x.lineWidth = g.an / esc; x.setLineDash
 // ─── LÍNEAS EN LA TARJETA GRÁFICA (v50) ───────────────────────────────────────
 // Un dibujo con más de GL_DESDE trazos (un plano de AutoCAD) pinta sus líneas con WebGL: la tarjeta gráfica dibuja millones
 // de tramos en 1–3 ms por cuadro (medido en la PC de Brian), contra 0,2–1,2 s del canvas. Los datos no cambian (siguen en
-// 64 bits); para pintar, cada tramo se pasa a 32 bits medido desde un origen del plano (O). Cada tramo es un rectángulo del
+// 64 bits); para pintar, cada coordenada medida desde un origen del plano (O) va en dos números de 32 bits (alto + resto) y la
+// tarjeta resta la vista a cada parte por separado (como Cesium y los visores CAD): así no pierde precisión ni con el zoom al
+// máximo y se usa también de cerca (v52; antes de cerca se volvía al canvas y se ponía lento). Cada tramo es un rectángulo del
 // ancho de la línea (2 px, como en el canvas) y los tipos de línea se cortan en la tarjeta. Si el equipo no tiene WebGL 2,
-// o se acerca tanto que los 32 bits no alcanzan, se pinta con el canvas como siempre.
+// se pinta con el canvas como siempre.
 const GL_DESDE = 20000, GL_LOTE = 5000;
+const f32 = Math.fround;
 // los tramos de cada estilo, en lotes de GL_LOTE objetos: entre lote y lote se cede la pantalla (y se avisa el avance).
 // Devuelve null si `vigente()` dejó de serlo (el dibujo cambió mientras tanto).
 // Las figuras con relleno o rayado (`claveRelleno(o)`: null si no tiene) llevan además su relleno en triángulos (`rellenos`, x y
 // por vértice; se parten con el Earcut de three.js), cada color en su capa.
 async function tramosGL(lista, estiloDe, claveRelleno, O, avance, vigente) {
-  const grupos = new Map(), rellenos = new Map(); let g = null, ext = 1, px = 0, py = 0, sx = 0, sy = 0, d = 0, cap = null;
+  const grupos = new Map(), rellenos = new Map(); let g = null, px = 0, py = 0, sx = 0, sy = 0, d = 0, cap = null;
+  // por tramo 9 números: inicio y fin en alto (4), sus restos (4) y la distancia recorrida (para el tipo de línea)
   const poner = (x0, y0, x1, y1) => { const L = Math.hypot(x1 - x0, y1 - y0); if (!(L > 0)) return;
-    if ((g.n + 1) * 5 > g.f.length) { const f = new Float32Array(g.f.length * 2); f.set(g.f); g.f = f; }
-    const f = g.f, i = g.n++ * 5; f[i] = x0; f[i + 1] = y0; f[i + 2] = x1; f[i + 3] = y1; f[i + 4] = d; d += L;
-    const e = Math.max(Math.abs(x0), Math.abs(y0), Math.abs(x1), Math.abs(y1)); if (e > ext) ext = e; };   // v51: también el inicio
+    if ((g.n + 1) * 9 > g.f.length) { const f = new Float32Array(g.f.length * 2); f.set(g.f); g.f = f; }
+    const f = g.f, i = g.n++ * 9; f[i] = f32(x0); f[i + 1] = f32(y0); f[i + 2] = f32(x1); f[i + 3] = f32(y1);
+    f[i + 4] = x0 - f[i]; f[i + 5] = y0 - f[i + 1]; f[i + 6] = x1 - f[i + 2]; f[i + 7] = y1 - f[i + 3]; f[i + 8] = d; d += L; };
   const R = { moveTo(x, y) { px = sx = x; py = sy = y; d = 0; if (cap) cap.push({ x, y }); },
     lineTo(x, y) { poner(px, py, x, y); px = x; py = y; if (cap) cap.push({ x, y }); },
     closePath() { poner(px, py, sx, sy); px = sx; py = sy; },
@@ -2412,21 +2416,22 @@ async function tramosGL(lista, estiloDe, claveRelleno, O, avance, vigente) {
     if (!vigente()) return null;
     for (let i = i0, fin = Math.min(lista.length, i0 + GL_LOTE); i < fin; i++) {
       const o = lista[i], e = estiloDe(o); g = grupos.get(e.clave);
-      if (!g) grupos.set(e.clave, g = { ...e, f: new Float32Array(5 * 4096), n: 0 });
+      if (!g) grupos.set(e.clave, g = { ...e, f: new Float32Array(9 * 4096), n: 0 });
       const cr = claveRelleno(o); cap = cr ? [] : null;
       px = py = sx = sy = d = 0; trazarObj(R, o, loc, 1, false);
-      if (cap && cap.length >= 3) {
-        let r = rellenos.get(cr.clave); if (!r) rellenos.set(cr.clave, r = { ...cr, f: new Float32Array(2 * 4096), n: 0 });
+      if (cap && cap.length >= 3) {   // por vértice 4 números: x e y en alto y sus restos
+        let r = rellenos.get(cr.clave); if (!r) rellenos.set(cr.clave, r = { ...cr, f: new Float32Array(4 * 4096), n: 0 });
         let tri = []; try { tri = THREE.ShapeUtils.triangulateShape(cap, []); } catch (_) {}
-        if ((r.n + tri.length * 3) * 2 > r.f.length) { const f = new Float32Array(Math.max(r.f.length * 2, (r.n + tri.length * 3) * 2 + 64)); f.set(r.f); r.f = f; }
-        for (const t of tri) for (const j of t) { r.f[r.n * 2] = cap[j].x; r.f[r.n * 2 + 1] = cap[j].y; r.n++; }
+        if ((r.n + tri.length * 3) * 4 > r.f.length) { const f = new Float32Array(Math.max(r.f.length * 2, (r.n + tri.length * 3) * 4 + 64)); f.set(r.f); r.f = f; }
+        for (const t of tri) for (const j of t) { const i = r.n++ * 4, x = cap[j].x, y = cap[j].y;
+          r.f[i] = f32(x); r.f[i + 1] = f32(y); r.f[i + 2] = x - r.f[i]; r.f[i + 3] = y - r.f[i + 1]; }
       }
       cap = null;
     }
     avance(Math.min(lista.length, i0 + GL_LOTE), lista.length);
     await new Promise(r => setTimeout(r, 0));
   }
-  return { grupos, rellenos, ext };
+  return { grupos, rellenos };
 }
 // el pintor: un canvas fuera de la pantalla con WebGL 2; `pintar` deja ahí las líneas de la vista y el Dibujo las copia a su
 // canvas (así el orden de siempre se conserva: rellenos y textos debajo, puntos encima, y la lupa las ve)
@@ -2438,11 +2443,12 @@ function motorGL() {
     if (!gl.getShaderParameter(x, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(x)); return x; };
   const pr = gl.createProgram();
   gl.attachShader(pr, sh(gl.VERTEX_SHADER, `#version 300 es
-in vec2 q; in vec4 s; in float d0;
-uniform vec2 c; uniform float k; uniform vec2 res; uniform float w;
+in vec2 q; in vec4 sh; in vec4 sl; in float d0;
+uniform vec2 ch; uniform vec2 cl; uniform float k; uniform vec2 res; uniform float w;
 out float dist;
 void main() {
-  vec2 a = (s.xy - c) * k, b = (s.zw - c) * k, v = b - a; float L = length(v);
+  vec4 r = ((sh - ch.xyxy) + (sl - cl.xyxy)) * k;   // alto menos alto (exacto si está cerca de la vista) más resto menos resto
+  vec2 a = r.xy, b = r.zw, v = b - a; float L = length(v);
   vec2 u = L > 0.0 ? v / L : vec2(1.0, 0.0), n = vec2(-u.y, u.x);
   float e = q.x * 2.0 - 1.0;   // los extremos se alargan medio ancho: así las esquinas de una polilínea no quedan con muesca
   vec2 p = mix(a, b, q.x) + u * e * w + n * q.y * w;
@@ -2461,12 +2467,12 @@ void main() {
 }`));
   gl.linkProgram(pr);
   if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pr));
-  const U = {}; ["c", "k", "res", "w", "col", "gu", "ng", "tot"].forEach(n => U[n] = gl.getUniformLocation(pr, n));
+  const U = {}; ["ch", "cl", "k", "res", "w", "col", "gu", "ng", "tot"].forEach(n => U[n] = gl.getUniformLocation(pr, n));
   // los rellenos: triángulos de un color; el rayado son rayas a 45° cada 9 px, como el patrón del canvas (patronRayado)
   const pf = gl.createProgram();
   gl.attachShader(pf, sh(gl.VERTEX_SHADER, `#version 300 es
-in vec2 p; uniform vec2 c; uniform float k; uniform vec2 res;
-void main() { gl_Position = vec4((p - c) * k / (res * 0.5), 0.0, 1.0); }`));
+in vec2 ph; in vec2 pl; uniform vec2 ch; uniform vec2 cl; uniform float k; uniform vec2 res;
+void main() { gl_Position = vec4(((ph - ch) + (pl - cl)) * k / (res * 0.5), 0.0, 1.0); }`));
   gl.attachShader(pf, sh(gl.FRAGMENT_SHADER, `#version 300 es
 precision highp float;
 uniform vec4 col; uniform int ray; uniform float dpr; out vec4 o;
@@ -2476,9 +2482,11 @@ void main() {
 }`));
   gl.linkProgram(pf);
   if (!gl.getProgramParameter(pf, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pf));
-  const UF = {}; ["c", "k", "res", "col", "ray", "dpr"].forEach(n => UF[n] = gl.getUniformLocation(pf, n));
-  const ap = gl.getAttribLocation(pf, "p");
-  const aq = gl.getAttribLocation(pr, "q"), as = gl.getAttribLocation(pr, "s"), ad = gl.getAttribLocation(pr, "d0");
+  const UF = {}; ["ch", "cl", "k", "res", "col", "ray", "dpr"].forEach(n => UF[n] = gl.getUniformLocation(pf, n));
+  const aph = gl.getAttribLocation(pf, "ph"), apl = gl.getAttribLocation(pf, "pl");
+  const aq = gl.getAttribLocation(pr, "q"), ash = gl.getAttribLocation(pr, "sh"), asl = gl.getAttribLocation(pr, "sl"), ad = gl.getAttribLocation(pr, "d0");
+  // el centro de la vista también en alto + resto
+  const centro = (u, v, O) => { const x = v.cx - O.x, y = v.cy - O.y, hx = f32(x), hy = f32(y); gl.uniform2f(u.ch, hx, hy); gl.uniform2f(u.cl, x - hx, y - hy); };
   const quad = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, quad); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, -1, 0, 1, 1, -1, 1, 1]), gl.STATIC_DRAW);
   const ctx = document.createElement("canvas").getContext("2d");
   const rgba = col => { ctx.fillStyle = "#000"; ctx.fillStyle = col; const t = ctx.fillStyle;
@@ -2491,15 +2499,17 @@ void main() {
       capas.concat(fondos).forEach(x => { gl.deleteBuffer(x.b); gl.deleteVertexArray(x.vao); }); capas = []; fondos = [];
       (rellenos || new Map()).forEach(r => { if (!r.n) return;
         const vao = gl.createVertexArray(), b = gl.createBuffer(); gl.bindVertexArray(vao);
-        gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, r.f.subarray(0, r.n * 2), gl.STATIC_DRAW);
-        gl.enableVertexAttribArray(ap); gl.vertexAttribPointer(ap, 2, gl.FLOAT, false, 0, 0); gl.bindVertexArray(null);
+        gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, r.f.subarray(0, r.n * 4), gl.STATIC_DRAW);
+        gl.enableVertexAttribArray(aph); gl.vertexAttribPointer(aph, 2, gl.FLOAT, false, 16, 0);
+        gl.enableVertexAttribArray(apl); gl.vertexAttribPointer(apl, 2, gl.FLOAT, false, 16, 8); gl.bindVertexArray(null);
         fondos.push({ vao, b, n: r.n, col: rgba(r.col), ray: r.rayado ? 1 : 0 }); });
       grupos.forEach(g => { if (!g.n) return;
         const vao = gl.createVertexArray(), b = gl.createBuffer(); gl.bindVertexArray(vao);
         gl.bindBuffer(gl.ARRAY_BUFFER, quad); gl.enableVertexAttribArray(aq); gl.vertexAttribPointer(aq, 2, gl.FLOAT, false, 0, 0);
-        gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, g.f.subarray(0, g.n * 5), gl.STATIC_DRAW);
-        gl.enableVertexAttribArray(as); gl.vertexAttribPointer(as, 4, gl.FLOAT, false, 20, 0); gl.vertexAttribDivisor(as, 1);
-        gl.enableVertexAttribArray(ad); gl.vertexAttribPointer(ad, 1, gl.FLOAT, false, 20, 16); gl.vertexAttribDivisor(ad, 1);
+        gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, g.f.subarray(0, g.n * 9), gl.STATIC_DRAW);
+        gl.enableVertexAttribArray(ash); gl.vertexAttribPointer(ash, 4, gl.FLOAT, false, 36, 0); gl.vertexAttribDivisor(ash, 1);
+        gl.enableVertexAttribArray(asl); gl.vertexAttribPointer(asl, 4, gl.FLOAT, false, 36, 16); gl.vertexAttribDivisor(asl, 1);
+        gl.enableVertexAttribArray(ad); gl.vertexAttribPointer(ad, 1, gl.FLOAT, false, 36, 32); gl.vertexAttribDivisor(ad, 1);
         gl.bindVertexArray(null);
         let gu = numsGuion(g.gu);
         if (gu.length % 2) gu = gu.concat(gu);   // como setLineDash: una lista impar se repite
@@ -2515,13 +2525,13 @@ void main() {
       gl.viewport(0, 0, aw, ah); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
       gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
       if (que === "rellenos") {
-        gl.useProgram(pf); gl.uniform2f(UF.c, v.cx - O.x, v.cy - O.y); gl.uniform1f(UF.k, v.k); gl.uniform2f(UF.res, W, H); gl.uniform1f(UF.dpr, dpr);
+        gl.useProgram(pf); centro(UF, v, O); gl.uniform1f(UF.k, v.k); gl.uniform2f(UF.res, W, H); gl.uniform1f(UF.dpr, dpr);
         fondos.forEach(x => { const [r, g, b, a] = x.col; gl.uniform4f(UF.col, r * a, g * a, b * a, a); gl.uniform1i(UF.ray, x.ray);
           gl.bindVertexArray(x.vao); gl.drawArrays(gl.TRIANGLES, 0, x.n); });
         gl.bindVertexArray(null); return fondos.length;
       }
       gl.useProgram(pr);
-      gl.uniform2f(U.c, v.cx - O.x, v.cy - O.y); gl.uniform1f(U.k, v.k); gl.uniform2f(U.res, W, H);
+      centro(U, v, O); gl.uniform1f(U.k, v.k); gl.uniform2f(U.res, W, H);
       capas.forEach(x => { const [r, g, b, a] = x.col;
         gl.uniform4f(U.col, r * a, g * a, b * a, a); gl.uniform1f(U.w, x.w);
         gl.uniform1i(U.ng, x.gu.length); gl.uniform1f(U.tot, x.tot || 1);
@@ -4508,7 +4518,7 @@ function TabDibujo({ proy, onChange, onArchivo, onSupers, cabecera, modoSup, ver
     x.restore();
     return cm.n;
   };
-  // de cerca: solo lo que se ve, armado en el momento y en píxeles (lo usan el canvas y, desde la v50, el modo WebGL)
+  // de cerca y sin WebGL: solo lo que se ve, armado en el momento y en píxeles
   const trazosCerca = (x, m) => {
     const trazar = trazadorDe(x);
     const k = vista.k, v0 = aM(0, H, vista), v1 = aM(W, 0, vista), grupos = new Map(), aS = q => { const w = aP(q); return { x: w.X + m, y: w.Y + m }; };
@@ -4538,7 +4548,7 @@ function TabDibujo({ proy, onChange, onArchivo, onSupers, cabecera, modoSup, ver
       tramosGL(lista, estiloTrazo, claveRelleno, O, (i, n) => avisoBarra({ texto: "Preparando el dibujo · " + i.toLocaleString("es-CO") + " de " + n.toLocaleString("es-CO") + " objetos", parte: i / n }),
         () => G.armando === deps).then(r => {
         if (!r || G.armando !== deps) return;
-        G.m.cargar(r.grupos, r.rellenos); G.deps = deps; G.armando = null; G.O = O; G.ext = r.ext; G.n = lista.length;
+        G.m.cargar(r.grupos, r.rellenos); G.deps = deps; G.armando = null; G.O = O; G.n = lista.length;
         G.ms = Math.round(performance.now() - t0);
         avisoBarra(null); fondoRef.current.deps = null; fotoRef.current.deps = null; if (pintarRef.current) pintarRef.current();
       }).catch(e => { console.error("Mini Civil · WebGL", e); G.m = false; G.armando = null; avisoBarra(null); fondoRef.current.deps = null; if (pintarRef.current) pintarRef.current(); });
@@ -4647,16 +4657,11 @@ function TabDibujo({ proy, onChange, onArchivo, onSupers, cabecera, modoSup, ver
       F.deps = fdeps; F.vista = vista; F.mg = mg; F.n = F.trazos + F.textos;
     }
     // v50: con WebGL, en cada cuadro y nítido: rellenos (debajo de la foto con los textos) y líneas (encima; debajo de los puntos).
-    // De lejos, la tarjeta gráfica; de cerca (donde los 32 bits no alcanzan) el canvas, solo lo que se ve. Mientras se preparan
-    // los tramos de un dibujo que cambió, se ven los anteriores.
-    const lejosGL = G && G.deps && vista.k * G.ext * 1.2e-7 < 0.2;
-    if (G && G.deps) { if (lejosGL) { if (G.m.pintar(vista, W, H, dprC, G.O, "rellenos")) x.drawImage(G.m.c, 0, 0, W, H); } else pintarRellenos(x, 0); }
+    // v52: a cualquier zoom (antes de cerca se pasaba al canvas). Mientras se preparan los tramos de un dibujo que cambió, se ven los anteriores.
+    if (G && G.deps && G.m.pintar(vista, W, H, dprC, G.O, "rellenos")) x.drawImage(G.m.c, 0, 0, W, H);
     { const r = vista.k / F.vista.k, ex = W / 2 + (F.vista.cx - vista.cx) * vista.k - r * (W / 2 + F.mg), ey = H / 2 - (F.vista.cy - vista.cy) * vista.k - r * (H / 2 + F.mg);
       x.drawImage(F.c, ex, ey, (W + 2 * F.mg) * r, (H + 2 * F.mg) * r); }
-    if (G && G.deps) {
-      if (lejosGL) { G.m.pintar(vista, W, H, dprC, G.O, "lineas"); x.drawImage(G.m.c, 0, 0, W, H); }
-      else { x.save(); x.lineCap = "round"; x.lineJoin = "round"; trazosCerca(x, 0); x.restore(); }
-    }
+    if (G && G.deps) { G.m.pintar(vista, W, H, dprC, G.O, "lineas"); x.drawImage(G.m.c, 0, 0, W, H); }
     const nTrazos = F.trazos, nTxtPlano = F.textos;
     const E = etqDe(dib); let nPts = 0, nTxt = 0, muestra = null;
     x.lineCap = "round";
