@@ -114,6 +114,18 @@ const DXF = ['0','SECTION','2','HEADER','9','$ACADVER','1','AC1015','0','ENDSEC'
     'ida y vuelta por DXF: la curvatura, el área (' + ida.area1.toFixed(4) + ') y el perímetro quedan iguales');
   ok(casi(ida.r, 2.5), 'el círculo vuelve con su radio exacto');
 
+  // ── v47: los 256 colores de AutoCAD entran con su color exacto y vuelven con su número ──
+  const aci = await p.evaluate(() => {
+    const lin = c => ['0', 'LINE', '8', '0', '62', String(c), '10', '0', '20', '0', '11', '10', '21', '0'];
+    const t = ['0', 'SECTION', '2', 'ENTITIES'].concat(lin(140), lin(92), lin(1), lin(7), ['0', 'ENDSEC', '0', 'EOF']).join('\n');
+    const r = leerDXF(t, 1), cols = r.objs.map(o => o.col || null);
+    const vuelta = crearDXF({ id: 1, nombre: 'd', objs: r.objs.map((o, i) => ({ ...o, id: i + 1 })) }).split(/\r?\n/);
+    return { cols, sinColor: r.sinColor, txt: vuelta.join('\n') };
+  });
+  ok(aci.cols[0] === '#00BFFF' && aci.cols[1] === '#00A500' && aci.cols[2] === '#DC2626' && aci.cols[3] === null && aci.sinColor === 0,
+    'colores de AutoCAD: el 140 entra azul celeste exacto (#00BFFF), el 92 verde (#00A500), el 1 y el 7 como siempre, y ninguno queda sin color: ' + JSON.stringify(aci.cols));
+  ok(/\n62\n140\n/.test(aci.txt) && /\n62\n92\n/.test(aci.txt), 'y al exportar el DXF vuelven con su mismo número de color (140 y 92)');
+
   // ── 3. archivos que no sirven ──
   const malos = await p.evaluate(() => ({
     bin: leerDXF('AutoCAD Binary DXF\r\n\u0000\u0000', 1).error,
