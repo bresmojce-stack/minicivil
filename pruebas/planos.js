@@ -155,9 +155,10 @@ const DB = {
     [{ id: 1, nombre: 'P', creado: '', dibujos: [{ id: 2, nombre: 'd', sig: 1, objs: [{ id: 1, t: 'tx', p: { x: 0, y: 0 }, s: 'PLANO', h: 2, rot: Math.PI / 2, al: 'cm' }, { id: 2, t: 'l', a: { x: -20, y: -20 }, b: { x: 20, y: 20 } }] }] }]);
   await p.reload(); await p.waitForSelector('.tv-dib-svg'); await p.waitForTimeout(500);
   await p.click('.mc-rapida [data-accion=todo]'); await p.waitForTimeout(500);
-  const en = await p.evaluate(() => { const t = [...document.querySelectorAll('.tv-dib-svg text')].find(x => x.textContent === 'PLANO');
-    const a = MC_DIB.aP({ x: 0, y: 0 }), c = MC_DIB.aP({ x: 1, y: 0 }); return t && { fs: parseFloat(t.getAttribute('font-size')), k: Math.hypot(c.X - a.X, c.Y - a.Y), tr: t.getAttribute('transform') }; });
-  ok(en && casi(en.fs, 2 * en.k, 0.01) && /rotate\(-90/.test(en.tr || ''), 'en el dibujo el texto mide 2 m a la escala de la vista y va girado 90°: ' + JSON.stringify(en));
+  // v45: el texto se pinta en el canvas (MC_DIB.muestraTx = el primero que se pintó)
+  const en = await p.evaluate(() => { const t = MC_DIB.muestraTx;
+    const a = MC_DIB.aP({ x: 0, y: 0 }), c = MC_DIB.aP({ x: 1, y: 0 }); return t && t.s === 'PLANO' && { fs: t.fs, k: Math.hypot(c.X - a.X, c.Y - a.Y), rot: t.rot, al: t.al }; });
+  ok(en && casi(en.fs, 2 * en.k, 0.01) && casi(en.rot, Math.PI / 2, 1e-9) && en.al === 'cm', 'en el dibujo el texto mide 2 m a la escala de la vista y va girado 90°: ' + JSON.stringify(en));
   // ida y vuelta por nuestro DXF: altura, giro y alineación se conservan
   const iv = await p.evaluate(() => { const pr = HIST.actual.proyectos[0]; const t = crearDXF(pr.dibujos[0], pr); return leerDXF(t, 1).objs.find(o => o.t === 'tx'); });
   ok(iv && casi(iv.h, 2) && casi(iv.rot, Math.PI / 2) && iv.al === 'cm', 'nuestro DXF lleva el texto con su altura, giro y alineación, y vuelve igual');

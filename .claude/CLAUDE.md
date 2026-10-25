@@ -49,7 +49,7 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 
 ## Al publicar (solo cuando Brian lo autorice)
 - Subir `TV_VERSION` en index.html, `CACHE_VERSION` en sw.js (ej. "2" y "minicivil-v2") y la versión del
-  `<title>` (hoy "Mini Civil v44").
+  `<title>` (hoy "Mini Civil v45").
 - `node pruebas/sintaxis.js` (sintaxis de cada `<script>` y versión igual en los dos archivos; corre también en
   GitHub en cada push a `main`, `.github/workflows/sintaxis.yml`).
 - Batería completa: `node pruebas/correr.js` (50 pruebas en PC, celular y tablet, también sin conexión con servidor real; `SOLO=nombre` corre algunas). Rápidas: `node pruebas/abrir.js` y `W=390 node pruebas/abrir.js` (PC y celular); `node pruebas/importar.js` si se tocaron los puntos o el DXF; `node pruebas/nube.js` si se tocó Drive o los datos.
@@ -74,6 +74,26 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 | PROYECTOS (Mini Civil) | **Espacio en el celular (v26)**: en la pestaña Dibujo no se dibuja `mc-barra-proy`; el botón de volver (`mc-volver`, solo la flecha) y `tv-acciones` (tema, Drive, guardado) van dentro de la fila del dibujo (`mc-barra-dib`), que `App` le pasa a `TabDibujo` en el prop `cabecera`. En las otras pestañas la fila sigue igual. En el Dibujo, nuevo/renombrar/duplicar/borrar/importar/tabla/DXF se fueron al menú `⋯` (`mc-mas`, panel `tv-dib-mas`, botones `mc-mas-*`), y la franja de comando `tv-dib-cmd` flota sobre el lienzo (`position: absolute`, ancho al contenido, `pointer-events: none` salvo en sus botones por la regla del `<style>`; se parte en varias líneas si hay muchos botones). El lienzo pasa de 479 a 601 px en el celular (del 57 % al 71 % de la pantalla). `proyectoNuevo` (`{ id, nombre, creado, dibujos }`), `useLocalProyectos` (guarda en `TV_KEY`, con deshacer), `copiaDeProyectos` (para `FalloApp`), `Logo`, `TarjetaNube`, `PantallaProyectos`, `App` (inicio = lista de proyectos; proyecto = pestañas `nav.tab`: Dibujo, Superficies…; desde la v22, dentro de un proyecto NO se dibuja la barra `tv-header`: el tema, Drive y el estado de guardado van en la fila del proyecto `mc-barra-proy`, y `tv-main` lleva `mc-sin-barra` para el margen de la franja de estado del celular. En el inicio la barra con el logo sigue), `FalloApp`, arranque y aviso de versión nueva |
 
 ## Estado y lo que sigue
+- Versión 45 (2026-10-25, plan de Brian "Plan de Ejecución Paso a Paso", pasos 2 y 3; tablas en `Diagnostico_optimizacion_DWG.md`):
+  **motor del Dibujo en canvas**. (A) `limitesDe(pts)` en vez de `Math.min(...lista)`, que con más de ~100 000 números tumbaba
+  `verTodo`, `crearDXF` y `encuadrarVentana`. (B) `rejillaDe(n, cajaDe)` (casillas de 256 × 256 sobre la caja del dibujo; lo que cubre
+  más de 64 casillas va en una lista que se revisa siempre; `cerca(p, r)` da los índices en orden, así los empates se resuelven igual)
+  y `cajaRejilla(o)` (el arco toma la caja de su círculo). En `TabDibujo`: `visibles`, `imanes` = { c, rej() } (sin `temp`: los puntos
+  ya puestos se revisan aparte en `conIman`), `rejObjs()`/`objsCerca(p, r)`; `conIman`, `imanVivo` y `tocarObjeto` solo miran lo cercano
+  (imanes 0,4 ms con 175 000 objetos). (C) **Todo lo de trazo va al canvas `tv-dib-fondo`**: líneas, polilíneas (con curvas), círculos,
+  arcos, mano alzada (`trazarObj(P, o, f, s, flip)` sobre un `Path2D`), figuras con relleno o rayado (`pintarRellenos`, patrón de 45°
+  `patronRayado`) y los textos con tamaño de los planos (`pintarTextos`); en el svg solo queda lo que se edita (lo elegido o
+  señalado se pinta además encima, resaltado), la mira, los imanes, la superficie y los objetos que no son de trazo (puntos elegidos,
+  cotas, cuadros, piezas, eje, textos de la app). `pintarTrazos(x, d, m)`: de lejos usa caminos guardados por estilo (`caminosRef`,
+  en coordenadas del terreno menos un origen, porque el canvas guarda 32 bits) y partidos por tamaño (potencias de 2) para saltar lo
+  de menos de 1,5 px solo durante un gesto; de cerca arma en el momento, en píxeles, solo lo que se ve. Orden: rellenos, textos,
+  líneas (como antes: los trazos juntos iban encima). **Foto en el gesto**: `moverVista` marca `gestoRef`; mientras dura el gesto y el
+  dibujo pasa de 20 000 cosas, `pintarFondo` solo mueve y escala la última foto (`fotoRef`, con media pantalla de margen a cada lado);
+  `fijarVista` la vuelve a pintar nítida. `pintarFondo` ya no repinta si solo se movió el mouse (`fondoRef`). `MC_DIB` suma `trazos`,
+  `textos`, `muestraTx`, `estilos`. Medido con "Propuesta muro" ×20 (175 060 objetos, pantalla de celular): acercar 697 → 32 ms por
+  cuadro, mover el cursor 937 → 17 ms, un toque 1,40 → 0,16 s, memoria 916 → 731 MB; vista completa igual a la v44 salvo 6 píxeles.
+  Pruebas `juntos.js` y `planos.js` revisan el canvas en vez del svg. Batería: 50 de 50. Pendiente (Paso 4 del plan): memoria
+  (vértices en `Float64Array`), y confirmar en el celular y la tablet de Brian (aquí no hay tarjeta gráfica).
 - Versión 44 (2026-10-24, Brian aprobó la Fase 1 del plan de optimización DWG; diagnóstico en `Diagnostico_optimizacion_DWG.md`):
   **el lector de DWG corre en un Worker**. `lib/libredwg/lector.js` (Worker de tipo módulo) recibe el archivo sin copiarlo
   (`postMessage(buf, [buf])`), lo lee con LibreDWG y devuelve el DXF de texto; `dwgATexto` cierra el Worker con `terminate()`
