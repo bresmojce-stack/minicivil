@@ -18,6 +18,8 @@
     node pruebas/dibujo3d.js                     # 3D dentro del Dibujo: botón 2D|3D, muros, tocar y quitar un triángulo, verlo en 2D (W=390 celular)
     node pruebas/presentacion.js                 # Presentación: escala exacta, 5 rótulos dentro de la hoja, PDF y recorrido en pantalla (W=390 celular)
     node pruebas/nube.js                         # Google Drive simulado con dos equipos (subir, recibir, cambiar, borrar, aparte de TopoVías)
+    node pruebas/trozos.js                       # v50: un dibujo grande se guarda por pedazos y se arma igual; la copia automática sin temporales
+    node pruebas/webgl.js                        # v50: dibujo de 25 000 objetos con WebGL (por software) = el mismo con el canvas
 
 Usan Playwright con el Chromium de la máquina (`PLAYWRIGHT=/ruta/a/playwright` si está en otro lugar).
 `dibujo.js` debe dar lo mismo que `pruebas/dibujo.js` de TopoVías, menos el alto del lienzo (aquí no hay pestañas
