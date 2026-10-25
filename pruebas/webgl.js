@@ -79,6 +79,25 @@ const WGPU = !!process.env.WEBGPU, MOTOR = WGPU ? 'webgpu' : 'webgl';
   ok(tGL.info.gl && tGL.info.gl.motor === MOTOR && tGL.info.gl.listo && tGL.info.gl.puntos === 12000 && tGL.info.gl.letras > 30000, 'puntos y letras en la tarjeta (' + JSON.stringify(tGL.info.gl) + ')');
   const c3 = comparar(tGL, tCv, 1000);
   ok(c3.a > 1000 && c3.ambos / c3.a > 0.8 && c3.n < c3.a * 1.4, 'textos y puntos caen donde los pinta el canvas (' + c3.pct + ' % de ' + c3.a + ' píxeles; WebGL ' + c3.n + ')');
+
+  // v54: una superficie grande (70 × 70 puntos, ~9 500 triángulos) en Superficies → Editar: los triángulos van en la tarjeta
+  // (no en el svg) y cada lado cae donde debe: a la mitad de un lado hay color de la superficie, en el centro de un triángulo no
+  const sp = []; for (let i = 0; i < 70; i++) for (let j = 0; j < 70; j++) sp.push({ id: 1000 + i * 70 + j, t: 'p', x: 1e6 + i * 10, y: 9e5 + j * 10, z: 100 + i * 0.1 + j * 0.05, d: 'TN' });
+  await p.evaluate(o => { localStorage.clear(); localStorage.setItem('minicivil', JSON.stringify([{ id: 1, nombre: 'S', creado: '', dibujos: [{ id: 2, nombre: 'Lev', sig: 9999, objs: o }],
+    superficies: [{ id: 111, nombre: 'Terreno', fuente: { tipo: 'desc', descs: ['TN'] }, color: '#16A34A', curvas: '' }] }]));
+    localStorage.setItem('minicivil__t', String(Date.now() + 99999)); localStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'superficies' }));
+    localStorage.setItem('minicivil_supvista', JSON.stringify('editar')); }, sp);
+  await p.reload(); await p.waitForSelector('.tv-dib-svg'); await p.waitForTimeout(800);
+  { const bx = await (await p.$('.tv-dib-fondo')).boundingBox(), c = await p.evaluate(() => MC_DIB.aP({ x: 1e6 + 345, y: 9e5 + 345 }));
+    await p.mouse.move(bx.x + c.X, bx.y + c.Y); for (let i = 0; i < 12; i++) { await p.mouse.wheel(0, -120); await p.waitForTimeout(60); } await p.waitForTimeout(800); }
+  const sup = await p.evaluate(() => { const c = document.querySelector('.tv-dib-fondo'), x = c.getContext('2d'), f = c.width / c.clientWidth;
+    const verde = q => { const s = MC_DIB.aP(q); let n = 0; const d = x.getImageData(Math.round(s.X * f) - 2, Math.round(s.Y * f) - 2, 5, 5).data;
+      for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 60 && d[i + 1] > d[i] + 30 && d[i + 1] > d[i + 2] + 20) n++; return n; };
+    let lado = 0, centro = 0; for (let i = 30; i < 40; i++) { lado += verde({ x: 1e6 + i * 10 + 5, y: 9e5 + 340 }) > 0 ? 1 : 0; centro += verde({ x: 1e6 + i * 10 + 5, y: 9e5 + 342.5 }) > 0 ? 1 : 0; }
+    const a = MC_DIB.aP({ x: 1e6, y: 9e5 }), b = MC_DIB.aP({ x: 1e6 + 10, y: 9e5 });
+    return { svg: !!document.querySelector('.mc-sup-tri'), lado, centro, pxm: Math.round((b.X - a.X) * 10) / 100 }; });
+  if (process.env.VER) { const bx = await (await p.$('.tv-dib-fondo')).boundingBox(); await p.screenshot({ clip: bx, path: process.env.VER }); }
+  ok(!sup.svg && sup.lado >= 9 && sup.centro <= 1, 'superficie grande: los triángulos van en la tarjeta y caen en su sitio (' + JSON.stringify(sup) + ')');
   ok(!errs.length, 'sin errores en la página' + (errs.length ? ': ' + errs.join(' | ') : ''));
   await b.close(); if (srv) srv.close();
   console.log(fallas ? fallas + ' falla(s).' : 'Todo bien.'); process.exit(fallas ? 1 : 0);

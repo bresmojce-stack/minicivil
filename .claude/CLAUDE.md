@@ -49,7 +49,7 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 
 ## Al publicar (solo cuando Brian lo autorice)
 - Subir `TV_VERSION` en index.html, `CACHE_VERSION` en sw.js (ej. "2" y "minicivil-v2") y la versión del
-  `<title>` (hoy "Mini Civil v53").
+  `<title>` (hoy "Mini Civil v54").
 - `node pruebas/sintaxis.js` (sintaxis de cada `<script>` y versión igual en los dos archivos; corre también en
   GitHub en cada push a `main`, `.github/workflows/sintaxis.yml`).
 - Batería completa: `node pruebas/correr.js` (52 pruebas en PC, celular y tablet, también sin conexión con servidor real; `SOLO=nombre` corre algunas). Rápidas: `node pruebas/abrir.js` y `W=390 node pruebas/abrir.js` (PC y celular); `node pruebas/importar.js` si se tocaron los puntos o el DXF; `node pruebas/nube.js` si se tocó Drive o los datos.
@@ -74,6 +74,14 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 | PROYECTOS (Mini Civil) | **Espacio en el celular (v26)**: en la pestaña Dibujo no se dibuja `mc-barra-proy`; el botón de volver (`mc-volver`, solo la flecha) y `tv-acciones` (tema, Drive, guardado) van dentro de la fila del dibujo (`mc-barra-dib`), que `App` le pasa a `TabDibujo` en el prop `cabecera`. En las otras pestañas la fila sigue igual. En el Dibujo, nuevo/renombrar/duplicar/borrar/importar/tabla/DXF se fueron al menú `⋯` (`mc-mas`, panel `tv-dib-mas`, botones `mc-mas-*`), y la franja de comando `tv-dib-cmd` flota sobre el lienzo (`position: absolute`, ancho al contenido, `pointer-events: none` salvo en sus botones por la regla del `<style>`; se parte en varias líneas si hay muchos botones). El lienzo pasa de 479 a 601 px en el celular (del 57 % al 71 % de la pantalla). `proyectoNuevo` (`{ id, nombre, creado, dibujos }`), `useLocalProyectos` (guarda en `TV_KEY`, con deshacer), `copiaDeProyectos` (para `FalloApp`), `Logo`, `TarjetaNube`, `PantallaProyectos`, `App` (inicio = lista de proyectos; proyecto = pestañas `nav.tab`: Dibujo, Superficies…; desde la v22, dentro de un proyecto NO se dibuja la barra `tv-header`: el tema, Drive y el estado de guardado van en la fila del proyecto `mc-barra-proy`, y `tv-main` lleva `mc-sin-barra` para el margen de la franja de estado del celular. En el inicio la barra con el logo sigue), `FalloApp`, arranque y aviso de versión nueva |
 
 ## Estado y lo que sigue
+- Versión 54 (2026-10-25, Brian: "hagamos tu recomendación"): **la superficie que se edita, en la tarjeta**. Con más de
+  `SUP_GL_DESDE` = 3 000 triángulos, `capaSup` ya no arma el trazo del svg (que recorría todos los triángulos en cada cuadro del
+  gesto): `tinGL(t, O, col)` pasa cada lado una vez (formato de `tramosGL`) y los quitados con relleno rojo y borde a trazos, a un
+  motor aparte (`glRef.current.supM`, `crearMotor()`: WebGPU o WebGL), que `pintarFondo` pinta encima del plano. Las chicas siguen
+  en el svg (`.mc-sup-tri`). Medido antes de decidir lo demás: con 50 000 puntos (100 000 triángulos) la triangulación tarda 0,2 s,
+  el volumen por mallas 0,2 s y leer el CSV 0,17 s: los cálculos por tandas no se hicieron (Brian lo sabe; se retoma si en el
+  celular se siente). Comparación en la PC de Brian con el UBE1801: Mini Civil lo abre (~6 s) y lo mueve al tope de la pantalla;
+  AutoCAD Web y cad-viewer se cayeron; DWG FastView lo abre en ~25 s convirtiéndolo en su servidor. Prueba en `webgl.js`.
 - Versión 53 (2026-10-25, Brian: "te dije WebGPU lo implementarás, si lo usa AutoCAD Web es porque funciona"; "publica y luego
   probamos contra los números de la v52"): **WebGPU** (`GPU`, `iniciarGPU`, `motorGPU`, shaders `WGSL_L`/`WGSL_T`) con lo mismo
   que `motorGL` y la misma forma (`cargar(r)`, `pintar(v, W, H, dpr, O, tope)`): líneas con tipo, rellenos y rayado, puntos, letras
