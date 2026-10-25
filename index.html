@@ -1041,7 +1041,8 @@ const TVDB = (function() {
   return {
     get: function(k) { return tx("readonly", function(st) { return st.get(k); }); },
     set: function(k, v) { return tx("readwrite", function(st) { return st.put(v, k); }); },
-    del: function(k) { return tx("readwrite", function(st) { return st.delete(k); }); }
+    del: function(k) { return tx("readwrite", function(st) { return st.delete(k); }); },
+    claves: function() { return tx("readonly", function(st) { return st.getAllKeys(); }); }
   };
 })();
 const DATOS = { idb: false, valores: {} };
@@ -1099,20 +1100,32 @@ function vaciarGuardado() {
   Object.keys(PENDIENTES).forEach(function(k) { const v = PENDIENTES[k]; delete PENDIENTES[k]; escribirDato(k, v); });
 }
 if (typeof window !== "undefined") {
-  window.addEventListener("pagehide", vaciarGuardado);
-  document.addEventListener("visibilitychange", function() { if (document.visibilityState === "hidden") vaciarGuardado(); });
+  window.addEventListener("pagehide", function() { vaciarGuardado(); terminarTrozosYa(); });
+  document.addEventListener("visibilitychange", function() { if (document.visibilityState === "hidden") { vaciarGuardado(); terminarTrozosYa(); } });
 }
 const LS_MAX = 500000;
+// v50: ¿el texto JSON de v pasaría de max letras? Cuenta por lo bajo (un número = 1 letra) y para apenas pasa: así un proyecto
+// grande no arma su texto entero solo para saber que no cabe (238 MB y 1,6 s con un plano de 223 000 objetos, en cada cambio)
+function pasaDe(v, max) {
+  let n = 0;
+  const ver = x => { if (n > max) return;
+    if (typeof x === "string") n += x.length + 2;
+    else if (Array.isArray(x)) { n += 2; for (let i = 0; i < x.length && n <= max; i++) ver(x[i]); }
+    else if (x && typeof x === "object") { n += 2; for (const k in x) { if (n > max) return; const y = x[k]; if (y === undefined || typeof y === "function") continue; n += k.length + 3; ver(y); } }
+    else n += typeof x === "number" ? 1 : 4; };
+  ver(v); return n > max;
+}
 function escribirDato(k, v) {
   // otra ventana guardó mientras esperaba: no se escribe encima
   if (DATOS.otraVentana) { avisarGuardado(false); return; }
   const t = Date.now();
   let lsOk = false;
-  if (DATOS.idb) TVDB.set(k, v).then(function() { return TVDB.set(k + "__t", t); })
+  if (DATOS.idb) (k === TV_KEY ? guardarProyectosIdb(k, v) : TVDB.set(k, v)).then(function() { return TVDB.set(k + "__t", t); })
     .then(function() { avisarGuardado(true); })
     .catch(function(e) { console.error("No se pudo guardar en el dispositivo", e); if (!lsOk) avisarGuardado(false); });
   // localStorage es compartido con TopoVías (misma dirección, unos 5 MB): un proyecto grande va solo a IndexedDB
-  try { const js = JSON.stringify(v); if (DATOS.idb && js.length > LS_MAX) throw new Error("grande"); localStorage.setItem(k, js); localStorage.setItem(k + "__t", String(t)); lsOk = true; }
+  try { if (DATOS.idb && pasaDe(v, LS_MAX)) throw new Error("grande");
+    const js = JSON.stringify(v); if (DATOS.idb && js.length > LS_MAX) throw new Error("grande"); localStorage.setItem(k, js); localStorage.setItem(k + "__t", String(t)); lsOk = true; }
   catch (e) {
     // ya no cabe en localStorage: si está en IndexedDB se quita la copia vieja (y se anota que solo está allá);
     // si no hay IndexedDB, se deja la última copia buena y se avisa que no se pudo guardar
@@ -1121,6 +1134,67 @@ function escribirDato(k, v) {
   if (lsOk) try { localStorage.removeItem(k + "__soloIdb"); } catch (_) {}
   if (lsOk) avisarGuardado(true); else if (!DATOS.idb) avisarGuardado(false);
   try { if (TV_CANAL && (k === TV_KEY || k === TV_KEY_OBRAS)) TV_CANAL.postMessage({ guardo: k }); } catch (_) {}
+}
+// v50: un dibujo de más de TROZO_DESDE objetos se guarda en IndexedDB por pedazos de TROZO objetos, cada pedazo en su propio
+// turno (copiar de una vez un plano de 223 000 objetos congelaba la pantalla 3,3 s en cada cambio). En el registro del
+// proyecto ese dibujo lleva `__trozos` (las claves de sus pedazos) en vez de `objs`; al abrir, `juntarTrozos` lo arma de nuevo.
+// Un pedazo que no cambió (los mismos objetos, en el mismo orden) no se vuelve a escribir: al agregar una línea al final solo
+// se escribe el último. El registro del proyecto se escribe al final, así si se corta a la mitad queda el anterior entero; los
+// pedazos que ya nadie usa se borran después. Las escrituras van de a una (`pendiente` = la última que llegó mientras tanto).
+const TROZO = 5000, TROZO_DESDE = 20000;
+const TROZOS = { porPrimero: new Map(), hay: false, ocupado: false, pendiente: null, terminarYa: null, n: 0 };
+function guardarProyectosIdb(k, v) {
+  return new Promise(function(res, rej) {
+    if (TROZOS.pendiente) { TROZOS.pendiente.v = v; TROZOS.pendiente.esperan.push({ res: res, rej: rej }); }
+    else TROZOS.pendiente = { k: k, v: v, esperan: [{ res: res, rej: rej }] };
+    if (!TROZOS.ocupado) siguienteTrozado();
+  });
+}
+function siguienteTrozado() {
+  const tarea = TROZOS.pendiente; TROZOS.pendiente = null;
+  if (!tarea) { TROZOS.ocupado = false; return; }
+  TROZOS.ocupado = true;
+  const k = tarea.k, nuevos = [], usados = new Set(), porPrimero = new Map();
+  const registro = !Array.isArray(tarea.v) ? tarea.v : tarea.v.map(p => !p || !Array.isArray(p.dibujos) ? p : { ...p, dibujos: p.dibujos.map(d => {
+    if (!d || !Array.isArray(d.objs) || d.objs.length <= TROZO_DESDE) return d;
+    const claves = [];
+    for (let i = 0; i < d.objs.length; i += TROZO) {
+      const parte = d.objs.slice(i, i + TROZO), viejo = TROZOS.porPrimero.get(parte[0]);
+      let c = viejo && viejo.parte.length === parte.length && viejo.parte.every((o, j) => o === parte[j]) ? viejo.c : null;
+      if (!c) { c = k + "__trozo" + Date.now().toString(36) + "_" + (++TROZOS.n); nuevos.push([c, parte]); }
+      usados.add(c); claves.push(c); porPrimero.set(parte[0], { c: c, parte: parte });
+    }
+    const { objs, ...resto } = d; return { ...resto, __trozos: claves }; }) });
+  if (nuevos.length) TROZOS.hay = true;
+  const pasos = nuevos.map(([c, parte]) => () => TVDB.set(c, parte)).concat([() => TVDB.set(k, registro)]);
+  let i = 0; const enVuelo = [], lanzar = () => enVuelo.push(pasos[i++]());
+  TROZOS.terminarYa = () => { while (i < pasos.length) lanzar(); };   // al cerrar o esconder la app: lo que falta, ya
+  (async () => {
+    while (i < pasos.length) { lanzar(); await enVuelo[enVuelo.length - 1]; if (i < pasos.length) await new Promise(r => setTimeout(r, 0)); }
+    await Promise.all(enVuelo);
+    TROZOS.porPrimero = porPrimero;
+    if (TROZOS.hay) { for (const c of await TVDB.claves()) if (typeof c === "string" && c.startsWith(k + "__trozo") && !usados.has(c)) await TVDB.del(c);
+      TROZOS.hay = usados.size > 0; }
+  })().then(() => tarea.esperan.forEach(e => e.res()), e => tarea.esperan.forEach(x => x.rej(e)))
+    .then(() => { TROZOS.terminarYa = null; siguienteTrozado(); });
+}
+// al cerrar o esconder la app: termina ya la escritura en curso y la que esperaba va entera (también se lee bien así)
+function terminarTrozosYa() {
+  if (TROZOS.terminarYa) TROZOS.terminarYa();
+  const t = TROZOS.pendiente; if (!t) return;
+  TROZOS.pendiente = null; TROZOS.hay = true;   // los pedazos viejos se borran en la próxima escritura
+  TVDB.set(t.k, t.v).then(() => t.esperan.forEach(e => e.res()), e => t.esperan.forEach(x => x.rej(e)));
+}
+// al abrir: los dibujos guardados por pedazos se arman de nuevo (si falta un pedazo, falla la carga y no se escribe encima)
+async function juntarTrozos(v) {
+  if (!Array.isArray(v)) return v;
+  for (const p of v) if (p && Array.isArray(p.dibujos)) for (let j = 0; j < p.dibujos.length; j++) {
+    const d = p.dibujos[j]; if (!d || !Array.isArray(d.__trozos)) continue;
+    const objs = [];
+    for (const c of d.__trozos) { const parte = await TVDB.get(c); if (!Array.isArray(parte)) throw new Error("falta un pedazo del dibujo " + d.nombre); for (const o of parte) objs.push(o); }
+    const { __trozos, ...resto } = d; p.dibujos[j] = { ...resto, objs: objs }; TROZOS.hay = true;
+  }
+  return v;
 }
 // Estado del guardado automático (lo muestra el encabezado)
 function avisarGuardado(ok) {
@@ -1160,7 +1234,7 @@ async function precargarDatos(claves) {
     // Si la base de datos no responde (ej. bloqueada por otra pestaña), no dejar la app en blanco
     await Promise.race([TVDB.get("__prueba__"), new Promise((_, rej) => setTimeout(() => rej(new Error("IndexedDB no responde")), 4000))]);
     for (const k of claves) {
-      let v = await TVDB.get(k);
+      let v = k === TV_KEY ? await juntarTrozos(await TVDB.get(k)) : await TVDB.get(k);
       const tIdb = (await TVDB.get(k + "__t")) || 0;
       // localStorage gana si es más reciente (o si es la primera vez: pasar lo que había a la base de datos)
       let ls = null, tLs = 0;
@@ -1173,6 +1247,8 @@ async function precargarDatos(claves) {
       DATOS.valores[k] = corregirComas(v);
     }
     DATOS.idb = true;
+    // pedazos que quedaron sin usar (la app se cerró a mitad de una escritura): se borran en la próxima
+    try { if (!TROZOS.hay) TROZOS.hay = (await TVDB.claves()).some(c => typeof c === "string" && c.startsWith(TV_KEY + "__trozo")); } catch (_) {}
   } catch (e) {
     DATOS.idb = false;
     DATOS.noEscribir = {};
@@ -2293,6 +2369,158 @@ function trazarObj(P, o, f, s, flip) {
   if (o.t === "pl" && o.c) P.closePath();
 }
 const guionLinea = tipo => { const x = DIB_LINEAS.find(q => q[0] === tipo); return x && x[2] ? x[2] : undefined; };
+// ─── LÍNEAS EN LA TARJETA GRÁFICA (v50) ───────────────────────────────────────
+// Un dibujo con más de GL_DESDE trazos (un plano de AutoCAD) pinta sus líneas con WebGL: la tarjeta gráfica dibuja millones
+// de tramos en 1–3 ms por cuadro (medido en la PC de Brian), contra 0,2–1,2 s del canvas. Los datos no cambian (siguen en
+// 64 bits); para pintar, cada tramo se pasa a 32 bits medido desde un origen del plano (O). Cada tramo es un rectángulo del
+// ancho de la línea (2 px, como en el canvas) y los tipos de línea se cortan en la tarjeta. Si el equipo no tiene WebGL 2,
+// o se acerca tanto que los 32 bits no alcanzan, se pinta con el canvas como siempre.
+const GL_DESDE = 20000, GL_LOTE = 5000;
+// los tramos de cada estilo, en lotes de GL_LOTE objetos: entre lote y lote se cede la pantalla (y se avisa el avance).
+// Devuelve null si `vigente()` dejó de serlo (el dibujo cambió mientras tanto).
+// Las figuras con relleno o rayado (`claveRelleno(o)`: null si no tiene) llevan además su relleno en triángulos (`rellenos`, x y
+// por vértice; se parten con el Earcut de three.js), cada color en su capa.
+async function tramosGL(lista, estiloDe, claveRelleno, O, avance, vigente) {
+  const grupos = new Map(), rellenos = new Map(); let g = null, ext = 1, px = 0, py = 0, sx = 0, sy = 0, d = 0, cap = null;
+  const poner = (x0, y0, x1, y1) => { const L = Math.hypot(x1 - x0, y1 - y0); if (!(L > 0)) return;
+    if ((g.n + 1) * 5 > g.f.length) { const f = new Float32Array(g.f.length * 2); f.set(g.f); g.f = f; }
+    const f = g.f, i = g.n++ * 5; f[i] = x0; f[i + 1] = y0; f[i + 2] = x1; f[i + 3] = y1; f[i + 4] = d; d += L;
+    const e = Math.max(Math.abs(x1), Math.abs(y1)); if (e > ext) ext = e; };
+  const R = { moveTo(x, y) { px = sx = x; py = sy = y; d = 0; if (cap) cap.push({ x, y }); },
+    lineTo(x, y) { poner(px, py, x, y); px = x; py = y; if (cap) cap.push({ x, y }); },
+    closePath() { poner(px, py, sx, sy); px = sx; py = sy; },
+    arc(cx, cy, r, a0, a1, ccw) { let t = a1 - a0;   // como el arc del canvas: sin ccw los ángulos crecen
+      if (Math.abs(t) >= TAU) t = ccw ? -TAU : TAU; else if (!ccw && t < 0) t += TAU; else if (ccw && t > 0) t -= TAU;
+      R.lineTo(cx + r * Math.cos(a0), cy + r * Math.sin(a0));
+      const m = Math.max(2, Math.ceil(Math.abs(t) / (Math.PI / 32)));
+      for (let i = 1; i <= m; i++) { const q = a0 + t * i / m; R.lineTo(cx + r * Math.cos(q), cy + r * Math.sin(q)); } } };
+  const loc = q => ({ x: q.x - O.x, y: q.y - O.y });
+  for (let i0 = 0; i0 < lista.length; i0 += GL_LOTE) {
+    if (!vigente()) return null;
+    for (let i = i0, fin = Math.min(lista.length, i0 + GL_LOTE); i < fin; i++) {
+      const o = lista[i], e = estiloDe(o); g = grupos.get(e.clave);
+      if (!g) grupos.set(e.clave, g = { ...e, f: new Float32Array(5 * 4096), n: 0 });
+      const cr = claveRelleno(o); cap = cr ? [] : null;
+      px = py = sx = sy = d = 0; trazarObj(R, o, loc, 1, false);
+      if (cap && cap.length >= 3) {
+        let r = rellenos.get(cr.clave); if (!r) rellenos.set(cr.clave, r = { ...cr, f: new Float32Array(2 * 4096), n: 0 });
+        let tri = []; try { tri = THREE.ShapeUtils.triangulateShape(cap, []); } catch (_) {}
+        if ((r.n + tri.length * 3) * 2 > r.f.length) { const f = new Float32Array(Math.max(r.f.length * 2, (r.n + tri.length * 3) * 2 + 64)); f.set(r.f); r.f = f; }
+        for (const t of tri) for (const j of t) { r.f[r.n * 2] = cap[j].x; r.f[r.n * 2 + 1] = cap[j].y; r.n++; }
+      }
+      cap = null;
+    }
+    avance(Math.min(lista.length, i0 + GL_LOTE), lista.length);
+    await new Promise(r => setTimeout(r, 0));
+  }
+  return { grupos, rellenos, ext };
+}
+// el pintor: un canvas fuera de la pantalla con WebGL 2; `pintar` deja ahí las líneas de la vista y el Dibujo las copia a su
+// canvas (así el orden de siempre se conserva: rellenos y textos debajo, puntos encima, y la lupa las ve)
+function motorGL() {
+  const c = document.createElement("canvas");
+  const gl = c.getContext("webgl2", { antialias: true, alpha: true, premultipliedAlpha: true, preserveDrawingBuffer: false });
+  if (!gl) return null;
+  const sh = (tipo, src) => { const x = gl.createShader(tipo); gl.shaderSource(x, src); gl.compileShader(x);
+    if (!gl.getShaderParameter(x, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(x)); return x; };
+  const pr = gl.createProgram();
+  gl.attachShader(pr, sh(gl.VERTEX_SHADER, `#version 300 es
+in vec2 q; in vec4 s; in float d0;
+uniform vec2 c; uniform float k; uniform vec2 res; uniform float w;
+out float dist;
+void main() {
+  vec2 a = (s.xy - c) * k, b = (s.zw - c) * k, v = b - a; float L = length(v);
+  vec2 u = L > 0.0 ? v / L : vec2(1.0, 0.0), n = vec2(-u.y, u.x);
+  float e = q.x * 2.0 - 1.0;   // los extremos se alargan medio ancho: así las esquinas de una polilínea no quedan con muesca
+  vec2 p = mix(a, b, q.x) + u * e * w + n * q.y * w;
+  dist = d0 * k + q.x * L + e * w;
+  gl_Position = vec4(p / (res * 0.5), 0.0, 1.0);
+}`));
+  gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, `#version 300 es
+precision highp float;
+in float dist; uniform vec4 col; uniform float gu[12]; uniform int ng; uniform float tot;
+out vec4 o;
+void main() {
+  if (ng > 0) { float m = mod(dist, tot), a = 0.0; bool raya = true;
+    for (int i = 0; i < 12; i++) { if (i >= ng) break; a += gu[i]; if (m < a) break; raya = !raya; }
+    if (!raya) discard; }
+  o = col;
+}`));
+  gl.linkProgram(pr);
+  if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pr));
+  const U = {}; ["c", "k", "res", "w", "col", "gu", "ng", "tot"].forEach(n => U[n] = gl.getUniformLocation(pr, n));
+  // los rellenos: triángulos de un color; el rayado son rayas a 45° cada 9 px, como el patrón del canvas (patronRayado)
+  const pf = gl.createProgram();
+  gl.attachShader(pf, sh(gl.VERTEX_SHADER, `#version 300 es
+in vec2 p; uniform vec2 c; uniform float k; uniform vec2 res;
+void main() { gl_Position = vec4((p - c) * k / (res * 0.5), 0.0, 1.0); }`));
+  gl.attachShader(pf, sh(gl.FRAGMENT_SHADER, `#version 300 es
+precision highp float;
+uniform vec4 col; uniform int ray; uniform float dpr; out vec4 o;
+void main() {
+  if (ray == 1) { vec2 q = gl_FragCoord.xy / dpr; if (mod((q.x - q.y) * 0.70710678, 9.0) > 1.3) discard; }
+  o = col;
+}`));
+  gl.linkProgram(pf);
+  if (!gl.getProgramParameter(pf, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pf));
+  const UF = {}; ["c", "k", "res", "col", "ray", "dpr"].forEach(n => UF[n] = gl.getUniformLocation(pf, n));
+  const ap = gl.getAttribLocation(pf, "p");
+  const aq = gl.getAttribLocation(pr, "q"), as = gl.getAttribLocation(pr, "s"), ad = gl.getAttribLocation(pr, "d0");
+  const quad = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, quad); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, -1, 0, 1, 1, -1, 1, 1]), gl.STATIC_DRAW);
+  const ctx = document.createElement("canvas").getContext("2d");
+  const rgba = col => { ctx.fillStyle = "#000"; ctx.fillStyle = col; const t = ctx.fillStyle;
+    if (t[0] === "#") return [1, 3, 5].map(i => parseInt(t.slice(i, i + 2), 16) / 255).concat([1]);
+    const m = t.match(/[\d.]+/g) || [0, 0, 0, 1]; return [m[0] / 255, m[1] / 255, m[2] / 255, m[3] == null ? 1 : +m[3]]; };
+  let capas = [], fondos = [];
+  const M = { c, perdido: false,
+    // pasa los tramos a la tarjeta (un búfer por estilo) y los rellenos (uno por color), y suelta los de antes
+    cargar(grupos, rellenos) {
+      capas.concat(fondos).forEach(x => { gl.deleteBuffer(x.b); gl.deleteVertexArray(x.vao); }); capas = []; fondos = [];
+      (rellenos || new Map()).forEach(r => { if (!r.n) return;
+        const vao = gl.createVertexArray(), b = gl.createBuffer(); gl.bindVertexArray(vao);
+        gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, r.f.subarray(0, r.n * 2), gl.STATIC_DRAW);
+        gl.enableVertexAttribArray(ap); gl.vertexAttribPointer(ap, 2, gl.FLOAT, false, 0, 0); gl.bindVertexArray(null);
+        fondos.push({ vao, b, n: r.n, col: rgba(r.col), ray: r.rayado ? 1 : 0 }); });
+      grupos.forEach(g => { if (!g.n) return;
+        const vao = gl.createVertexArray(), b = gl.createBuffer(); gl.bindVertexArray(vao);
+        gl.bindBuffer(gl.ARRAY_BUFFER, quad); gl.enableVertexAttribArray(aq); gl.vertexAttribPointer(aq, 2, gl.FLOAT, false, 0, 0);
+        gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, g.f.subarray(0, g.n * 5), gl.STATIC_DRAW);
+        gl.enableVertexAttribArray(as); gl.vertexAttribPointer(as, 4, gl.FLOAT, false, 20, 0); gl.vertexAttribDivisor(as, 1);
+        gl.enableVertexAttribArray(ad); gl.vertexAttribPointer(ad, 1, gl.FLOAT, false, 20, 16); gl.vertexAttribDivisor(ad, 1);
+        gl.bindVertexArray(null);
+        let gu = g.gu ? g.gu.split(/[ ,]+/).map(Number).filter(x => x >= 0) : [];
+        if (gu.length % 2) gu = gu.concat(gu);   // como setLineDash: una lista impar se repite
+        const tot = gu.reduce((a, x) => a + x, 0);
+        capas.push({ vao, b, n: g.n, col: rgba(g.col), w: g.an / 2, gu: tot > 0 ? gu.slice(0, 12) : [], tot });
+      });
+    },
+    // v = vista ({cx, cy, k}), W y H en px de pantalla, dpr = puntos por px, O = origen de los tramos
+    // que = "rellenos" o "lineas" (van en dos pasadas: entre las dos el Dibujo pone los textos, como en el canvas)
+    pintar(v, W, H, dpr, O, que) {
+      const aw = Math.round(W * dpr), ah = Math.round(H * dpr);
+      if (c.width !== aw || c.height !== ah) { c.width = aw; c.height = ah; }
+      gl.viewport(0, 0, aw, ah); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+      if (que === "rellenos") {
+        gl.useProgram(pf); gl.uniform2f(UF.c, v.cx - O.x, v.cy - O.y); gl.uniform1f(UF.k, v.k); gl.uniform2f(UF.res, W, H); gl.uniform1f(UF.dpr, dpr);
+        fondos.forEach(x => { const [r, g, b, a] = x.col; gl.uniform4f(UF.col, r * a, g * a, b * a, a); gl.uniform1i(UF.ray, x.ray);
+          gl.bindVertexArray(x.vao); gl.drawArrays(gl.TRIANGLES, 0, x.n); });
+        gl.bindVertexArray(null); return fondos.length;
+      }
+      gl.useProgram(pr);
+      gl.uniform2f(U.c, v.cx - O.x, v.cy - O.y); gl.uniform1f(U.k, v.k); gl.uniform2f(U.res, W, H);
+      capas.forEach(x => { const [r, g, b, a] = x.col;
+        gl.uniform4f(U.col, r * a, g * a, b * a, a); gl.uniform1f(U.w, x.w);
+        gl.uniform1i(U.ng, x.gu.length); gl.uniform1f(U.tot, x.tot || 1);
+        if (x.gu.length) gl.uniform1fv(U.gu, new Float32Array(x.gu.concat(new Array(12 - x.gu.length).fill(0))));
+        gl.bindVertexArray(x.vao); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, x.n); });
+      gl.bindVertexArray(null);
+    },
+    tramos: () => capas.reduce((a, x) => a + x.n, 0)
+  };
+  c.addEventListener("webglcontextlost", e => { e.preventDefault(); M.perdido = true; });
+  return M;
+}
 // Colores que se pueden poner a cualquier objeto, con su número de color de AutoCAD (ACI)
 const DIB_COLORES = [["#0F172A", "Negro", 7], ["#DC2626", "Rojo", 1], ["#EA580C", "Naranja", 30], ["#CA8A04", "Amarillo", 2], ["#16A34A", "Verde", 3],
   ["#0891B2", "Cian", 4], ["#2563EB", "Azul", 5], ["#7C3AED", "Morado", 200], ["#DB2777", "Rosado", 6], ["#92400E", "Café", 34], ["#64748B", "Gris", 8]];
@@ -2436,7 +2664,15 @@ const tipoDeLT = n => { const t = String(n || "").toUpperCase();
   if (/DOT|ISO07/.test(t)) return "punt";
   if (/DASH|HIDDEN|OCULT|ISO0[2368]|FENCE/.test(t)) return "disc";
   return null; };
-function leerDXF(texto, sig) {
+// v50: leerDXF se lee por pasos (`leerDXFPasos` cede entre lote y lote y dice cuánto lleva, de 0 a 1): `leerDXF` lo corre de
+// una (las pruebas, igual que siempre) y `leerDXFLotes` cede la pantalla cada ~40 ms para mover la barra de avance.
+function leerDXF(texto, sig) { const g = leerDXFPasos(texto, sig); let r = g.next(); while (!r.done) r = g.next(); return r.value; }
+async function leerDXFLotes(texto, sig, avance) {
+  const g = leerDXFPasos(texto, sig); let r = g.next(), t = performance.now();
+  while (!r.done) { if (performance.now() - t > 40) { if (avance) avance(r.value); await new Promise(z => setTimeout(z, 0)); t = performance.now(); } r = g.next(); }
+  return r.value;
+}
+function* leerDXFPasos(texto, sig) {
   const vacio = { objs: [], presentaciones: [], resumen: [], saltados: [], capas: [], sinColor: 0, bloques: 0 };
   if (/AutoCAD Binary DXF/.test(texto.slice(0, 40))) return { ...vacio, error: "Es un DXF binario. Vuelve a guardarlo en AutoCAD como “DXF ASCII” (texto)." };
   // v48: el texto se recorre con un cursor, línea por línea, sin partirlo entero en un arreglo (un DWG de 22 MB puede dar un DXF
@@ -2447,7 +2683,8 @@ function leerDXF(texto, sig) {
     let l = texto.slice(pos, f); pos = f + 1; if (sep === "\n" && l.charCodeAt(l.length - 1) === 13) l = l.slice(0, -1); return l; };
   // parejas (código, valor); si una línea de código no es número, se salta para volver a sincronizar
   const items = [];
-  for (let lc = linea(); lc !== null; lc = linea()) {
+  for (let lc = linea(), nl = 0; lc !== null; lc = linea()) {
+    if (++nl % 20000 === 0) yield 0.55 * pos / texto.length;   // v50: leer el texto es más o menos la mitad del trabajo
     if (!/^\s*-?\d+\s*$/.test(lc)) continue;
     const c = parseInt(lc, 10), v = linea(); if (v === null) break;
     if (c === 0) items.push({ t: String(v).trim().toUpperCase(), ord: [] });
@@ -2847,7 +3084,13 @@ function leerDXF(texto, sig) {
     if (!/^(VERTEX|SEQEND|ATTRIB)$/.test(it.t)) ultima = num(it, 67, 0) === 1 ? entidadesPapel : entidades;
     ultima.push(it);
   }
-  procesar(entidades, null, 0);
+  // v50: de a lotes, cortando solo antes de un objeto que no sea parte del anterior (VERTEX, SEQEND, ATTRIB): mismo resultado
+  for (let a = 0; a < entidades.length;) {
+    let b = Math.min(entidades.length, a + 5000);
+    while (b < entidades.length && /^(VERTEX|SEQEND|ATTRIB)$/.test(entidades[b].t)) b++;
+    procesar(a === 0 && b === entidades.length ? entidades : entidades.slice(a, b), null, 0); a = b;
+    yield 0.55 + 0.4 * a / entidades.length;
+  }
 
   // ── v48: presentaciones (espacio papel) ──
   // Cada una entra como un dibujo aparte: sus objetos de papel (rótulo, marcos, textos) y, en cada ventana, el modelo visto a
@@ -3218,7 +3461,9 @@ function TabDibujo({ proy, onChange, onArchivo, onSupers, cabecera, modoSup, ver
   const [verImanes, setVerImanes] = React.useState(false);
   // v43: lo que llega de "Abrir archivo" (inicio) entra por la misma revisión de Importar DXF / Importar puntos
   React.useEffect(() => { if (!abrir) return;
-    if (abrir.tipo === "dxf") setDxfIn(abrirDXF(abrir.texto, abrir.nombre, 1, abrir.ms)); else setImp({ texto: abrir.texto, nombre: abrir.nombre });
+    if (abrir.tipo === "dxf") { setDxfIn({ nombre: abrir.nombre, leyendo: true, kb: Math.round(abrir.texto.length / 1024) });
+      abrirDXF(abrir.texto, abrir.nombre, 1, abrir.ms).then(r => setDxfIn(d => d && d.leyendo ? r : d)); }   // si lo cerraron mientras leía, no se abre
+    else setImp({ texto: abrir.texto, nombre: abrir.nombre });
     if (onAbierto) onAbierto(); }, [abrir]);
   // v37: barra rápida (qué lleva, si se ve y si se está escogiendo)
   const [rapida, setRapidaR] = React.useState(() => lsLeer("minicivil_rapida", RAPIDA_DEF));
@@ -3368,6 +3613,11 @@ function TabDibujo({ proy, onChange, onArchivo, onSupers, cabecera, modoSup, ver
   // v45: caminos del canvas por estilo, en coordenadas del terreno menos un origen (el canvas guarda sus números en 32 bits:
   // con coordenadas de millones de metros temblaría). Se arman la primera vez que se pintan, después de cada cambio del dibujo.
   const caminosRef = React.useRef({ deps: null });
+  // v50: las líneas de un dibujo grande van en la tarjeta gráfica (motorGL). glRef: m = el motor (false si este equipo no
+  // puede), lista = los trazos de `visibles`, deps = de qué dibujo son los tramos cargados, O/ext/n = origen, tamaño y cuántos.
+  // Van aquí arriba, antes de la salida temprana `if (!dib)` (React exige que todos los ganchos se registren siempre)
+  const glRef = React.useRef({ m: null, vis: null, lista: [], deps: null, armando: null, O: null, ext: 1, n: 0 });
+  const barraRef = React.useRef(null);
   const fondoRef = React.useRef({ deps: null });
   const gestoRef = React.useRef(false), fotoRef = React.useRef({ deps: null });
   const rayados = React.useRef(new Map()).current;   // patrones del rayado del canvas, uno por color (patronRayado)
@@ -4236,15 +4486,47 @@ function TabDibujo({ proy, onChange, onArchivo, onSupers, cabecera, modoSup, ver
       // en pleno gesto (solo si la foto no sirve) se saltan los objetos de menos de 1,5 px; quieto, se pinta todo
       cm.grupos.forEach(g => { let puesto = false; g.porT.forEach((L, t) => { if (gestoRef.current && Math.pow(2, t + 1) * k < 1.5) return;
         if (!puesto) { trazar(g, null, k); puesto = true; } for (const P of L) x.stroke(P); }); });
-    } else {
-      const v0 = aM(0, H, vista), v1 = aM(W, 0, vista), grupos = new Map(), aS = q => { const w = aP(q); return { x: w.X + m, y: w.Y + m }; };
-      rejObjs().cerca({ x: (v0.x + v1.x) / 2, y: (v0.y + v1.y) / 2 }, Math.max(v1.x - v0.x, v1.y - v0.y) / 2 + (m + 4) / k).forEach(i => {
-        const o = visibles[i]; if (!alCanvas(o)) return;
-        const e = estiloTrazo(o); let g = grupos.get(e.clave); if (!g) grupos.set(e.clave, g = { ...e, L: [] }); const P = new Path2D(); trazarObj(P, o, aS, k, true); g.L.push(P); });
-      grupos.forEach(g => { trazar(g, null, 1); for (const P of g.L) x.stroke(P); });
-    }
+    } else trazosCerca(x, m, trazar);
     x.restore();
     return cm.n;
+  };
+  // de cerca: solo lo que se ve, armado en el momento y en píxeles (lo usan el canvas y, desde la v50, el modo WebGL)
+  const trazosCerca = (x, m, trazar) => {
+    trazar = trazar || ((g, P, esc) => { x.lineWidth = g.an / esc; x.setLineDash(g.gu ? g.gu.split(/[ ,]+/).map(n => +n / esc) : []);
+      x.strokeStyle = g.col; if (P) x.stroke(P); });
+    const k = vista.k, v0 = aM(0, H, vista), v1 = aM(W, 0, vista), grupos = new Map(), aS = q => { const w = aP(q); return { x: w.X + m, y: w.Y + m }; };
+    rejObjs().cerca({ x: (v0.x + v1.x) / 2, y: (v0.y + v1.y) / 2 }, Math.max(v1.x - v0.x, v1.y - v0.y) / 2 + (m + 4) / k).forEach(i => {
+      const o = visibles[i]; if (!alCanvas(o)) return;
+      const e = estiloTrazo(o); let g = grupos.get(e.clave); if (!g) grupos.set(e.clave, g = { ...e, L: [] }); const P = new Path2D(); trazarObj(P, o, aS, k, true); g.L.push(P); });
+    grupos.forEach(g => { trazar(g, null, 1); for (const P of g.L) x.stroke(P); });
+  };
+  const avisoBarra = t => { const b = barraRef.current; if (!b) return;
+    b.style.display = t ? "block" : "none"; if (t) { b.firstChild.textContent = t.texto; b.lastChild.firstChild.style.width = Math.round(t.parte * 100) + "%"; } };
+  const conGL = () => {
+    const G = glRef.current;
+    if (G.vis !== visibles) { G.vis = visibles; G.lista = visibles.filter(o => alCanvas(o) || conRelleno(o)); }
+    if (G.lista.length <= GL_DESDE || G.m === false || window.MC_SIN_GL) {   // MC_SIN_GL: para comparar en las pruebas
+      G.armando = null; if (G.m && G.n) { G.m.cargar(new Map()); G.n = 0; G.deps = null; } return null; }
+    if (!G.m) try { G.m = motorGL() || false; } catch (e) { console.error("Mini Civil · WebGL no arrancó", e); G.m = false; }
+    if (G.m && G.m.perdido) { G.m = null; G.deps = null; G.armando = null; G.perdidas = (G.perdidas || 0) + 1;   // el celular le quitó la tarjeta a la app
+      if (G.perdidas <= 3) try { G.m = motorGL() || false; } catch (_) { G.m = false; } else G.m = false; }   // (cámara, otra app): se arma de nuevo
+    if (!G.m) { G.deps = null; return null; }
+    const deps = [visibles, oscuro];
+    if ((!G.deps || G.deps[0] !== deps[0] || G.deps[1] !== deps[1]) && !(G.armando && G.armando[0] === deps[0] && G.armando[1] === deps[1])) {
+      G.armando = deps; const lista = G.lista, p0 = DIB.extremos(lista[0])[0] || lista[0].c || { x: 0, y: 0 }, O = { x: p0.x, y: p0.y };
+      const t0 = performance.now();
+      avisoBarra({ texto: "Preparando el dibujo…", parte: 0 });
+      const claveRelleno = o => !conRelleno(o) ? null : o.som === "rayado" ? { clave: "R|" + (o.col || "#0284C7"), col: o.col || "#0284C7", rayado: true }
+        : { clave: "F|" + rellenoDe(o), col: rellenoDe(o) };
+      tramosGL(lista, estiloTrazo, claveRelleno, O, (i, n) => avisoBarra({ texto: "Preparando el dibujo · " + i.toLocaleString("es-CO") + " de " + n.toLocaleString("es-CO") + " objetos", parte: i / n }),
+        () => G.armando === deps).then(r => {
+        if (!r || G.armando !== deps) return;
+        G.m.cargar(r.grupos, r.rellenos); G.deps = deps; G.armando = null; G.O = O; G.ext = r.ext; G.n = lista.length;
+        G.ms = Math.round(performance.now() - t0);
+        avisoBarra(null); fondoRef.current.deps = null; fotoRef.current.deps = null; if (pintarRef.current) pintarRef.current();
+      }).catch(e => { console.error("Mini Civil · WebGL", e); G.m = false; G.armando = null; avisoBarra(null); fondoRef.current.deps = null; if (pintarRef.current) pintarRef.current(); });
+    }
+    return G;
   };
   // v45: las figuras con relleno o rayado y su borde (son pocas: se arman cada vez, en píxeles). Van primero: encima, los textos y las líneas
   const pintarRellenos = (x, m) => {
@@ -4323,7 +4605,7 @@ function TabDibujo({ proy, onChange, onArchivo, onSupers, cabecera, modoSup, ver
     // v45: las líneas y los textos del plano se pintan en una "foto" con media pantalla de margen a cada lado. Mientras dura un
     // gesto (mover o acercar con el dedo o la rueda) y el dibujo es grande, cada cuadro solo mueve y escala esa foto; al soltar
     // (fijarVista) se pinta de nuevo, nítida. El canvas se borra entero en cada cuadro: no pueden quedar restos.
-    const mg = Math.round(Math.max(W, H) / 2), F = fotoRef.current;
+    const mg = Math.round(Math.max(W, H) / 2), F = fotoRef.current, G = conGL();   // G: las líneas van en la tarjeta gráfica (v50)
     const fdeps = [visibles, oscuro, W, H, aw, ah, lienzoN];
     const sirve = F.deps && F.deps.every((q, i) => q === fdeps[i]) && gestoRef.current && F.n > 20000 &&
       vista.k / F.vista.k > 0.25 && vista.k / F.vista.k < 4;
@@ -4331,11 +4613,22 @@ function TabDibujo({ proy, onChange, onArchivo, onSupers, cabecera, modoSup, ver
       const fc = F.c || (F.c = document.createElement("canvas")), fw = Math.round((W + 2 * mg) * dprC), fh = Math.round((H + 2 * mg) * dprC);
       if (fc.width !== fw || fc.height !== fh) { fc.width = fw; fc.height = fh; }
       const fx = fc.getContext("2d"); fx.setTransform(dprC, 0, 0, dprC, 0, 0); fx.clearRect(0, 0, W + 2 * mg, H + 2 * mg);
-      pintarRellenos(fx, mg); F.textos = pintarTextos(fx, mg); F.trazos = pintarTrazos(fx, dprC, mg);   // el orden de siempre: rellenos, textos, líneas
+      if (!G) pintarRellenos(fx, mg);   // con WebGL los rellenos tampoco van en la foto (van en la tarjeta, debajo de los textos)
+      F.textos = pintarTextos(fx, mg);   // el orden de siempre: rellenos, textos, líneas
+      F.trazos = G ? G.lista.length : pintarTrazos(fx, dprC, mg);   // con WebGL las líneas no van en la foto: se pintan nítidas en cada cuadro
       F.deps = fdeps; F.vista = vista; F.mg = mg; F.n = F.trazos + F.textos;
     }
+    // v50: con WebGL, en cada cuadro y nítido: rellenos (debajo de la foto con los textos) y líneas (encima; debajo de los puntos).
+    // De lejos, la tarjeta gráfica; de cerca (donde los 32 bits no alcanzan) el canvas, solo lo que se ve. Mientras se preparan
+    // los tramos de un dibujo que cambió, se ven los anteriores.
+    const lejosGL = G && G.deps && vista.k * G.ext * 1.2e-7 < 0.2;
+    if (G && G.deps) { if (lejosGL) { if (G.m.pintar(vista, W, H, dprC, G.O, "rellenos")) x.drawImage(G.m.c, 0, 0, W, H); } else pintarRellenos(x, 0); }
     { const r = vista.k / F.vista.k, ex = W / 2 + (F.vista.cx - vista.cx) * vista.k - r * (W / 2 + F.mg), ey = H / 2 - (F.vista.cy - vista.cy) * vista.k - r * (H / 2 + F.mg);
       x.drawImage(F.c, ex, ey, (W + 2 * F.mg) * r, (H + 2 * F.mg) * r); }
+    if (G && G.deps) {
+      if (lejosGL) { G.m.pintar(vista, W, H, dprC, G.O, "lineas"); x.drawImage(G.m.c, 0, 0, W, H); }
+      else { x.save(); x.lineCap = "round"; x.lineJoin = "round"; trazosCerca(x, 0); x.restore(); }
+    }
     const nTrazos = F.trazos, nTxtPlano = F.textos;
     const E = etqDe(dib); let nPts = 0, nTxt = 0, muestra = null;
     x.lineCap = "round";
@@ -4357,7 +4650,8 @@ function TabDibujo({ proy, onChange, onArchivo, onSupers, cabecera, modoSup, ver
       if (suyos.length && (!muestra || suyos.length > muestra.textos.length)) muestra = { nom: o.nom, textos: suyos };
     });
     // para las pruebas y para revisar en obra: dónde cae un punto del terreno en la pantalla y cuántos se pintaron
-    try { window.MC_DIB = { aP: q => aP(q), pts: nPts, txt: nTxt, muestra, trazos: nTrazos, textos: nTxtPlano, muestraTx: F.muestraTx, estilos: caminosRef.current.grupos ? caminosRef.current.grupos.size : 0 }; } catch (_) {}
+    try { window.MC_DIB = { aP: q => aP(q), pts: nPts, txt: nTxt, muestra, trazos: nTrazos, textos: nTxtPlano, muestraTx: F.muestraTx, estilos: caminosRef.current.grupos ? caminosRef.current.grupos.size : 0,
+      gl: G ? { listo: !!G.deps, tramos: G.m.tramos(), ms: G.ms } : null }; } catch (_) {}
   };
   // la lupa copia la imagen de fondo ampliada alrededor de la mira (así se ven los puntos, que ya no están en el svg)
   const pintarLupa = () => {
@@ -4754,6 +5048,12 @@ function TabDibujo({ proy, onChange, onArchivo, onSupers, cabecera, modoSup, ver
       // la caja recorta y pone el fondo; encima va la imagen (cuadrícula y puntos) y encima el svg con lo que se está editando
       h("div", { style: { position: "relative", flex: 1, minHeight: 0, overflow: "hidden", background: "var(--c-lienzo)" } },
         h("canvas", { ref: cvRef, className: "tv-dib-fondo", style: { position: "absolute", inset: 0, width: "100%", height: "100%", display: "block", pointerEvents: "none" } }),
+        // v50: avance de lo que se prepara por lotes (lo actualiza avisoBarra directo, sin volver a dibujar la pantalla)
+        h("div", { ref: barraRef, className: "mc-progreso", style: { display: "none", position: "absolute", left: "50%", top: 56, transform: "translateX(-50%)", zIndex: 6,
+          background: C.panel, border: "1px solid " + C.border, borderRadius: 8, padding: "8px 12px", boxShadow: "0 4px 14px rgba(0,0,0,.18)",
+          font: "600 12px 'Plus Jakarta Sans', sans-serif", color: C.text, pointerEvents: "none", width: "min(320px, 80%)" } },
+          h("div", { style: { marginBottom: 6 } }, ""),
+          h("div", { style: { height: 6, borderRadius: 3, background: C.border, overflow: "hidden" } }, h("div", { style: { height: "100%", width: "0%", background: C.accent } }))),
         h("svg", { ref: svgRef, width: "100%", height: "100%", className: "tv-dib-svg", style: { position: "absolute", inset: 0, display: "block", touchAction: "none", userSelect: "none", cursor: herr === "mano" ? "grab" : ptr ? "none" : herr === "elegir" ? "grab" : "crosshair" },
           onPointerDown: onDown, onPointerMove: onMove, onPointerUp: onUp, onPointerCancel: e => { const G = gesto.current; G.ptrs.delete(e.pointerId); soltarLargo(G); G.apuntando = false; G.pinch = null; G.pan = null; G.trazo = null; setTrazo(null); setCursor(null); setLupa(null); fijarVista(); },
           onPointerLeave: e => { if (e.pointerType === "mouse") { setCursor(null); setPtr(null); setHoverId(null); } }, onContextMenu: e => e.preventDefault() }, h("g", { key: "capa" + lienzoN, ref: capaGRef, className: "tv-dib-capa" }, els)),
@@ -5042,7 +5342,9 @@ let LECTURA_IMP = {};
 // ── Importar DXF (v31): primero la revisión de lo que trae el archivo, y solo si Brian acepta se dibuja ──
 // estado del panel con un DXF ya leído (también lo usa "Abrir archivo" del inicio)
 // v48: guarda cuánto tardó (pasar el DWG y leer) y cuánto pesa el texto, para la revisión y la consola
-const abrirDXF = (t, nombre, sig, msDwg) => { const t0 = performance.now(), r = leerDXF(t, sig);
+// v50: se lee por lotes (la pantalla no se queda quieta) y la barra `.mc-dxf-avance` del panel avanza sola
+const avanceDXF = p => { const el = document.querySelector(".mc-dxf-avance"); if (el) el.style.width = Math.round(p * 100) + "%"; };
+const abrirDXF = async (t, nombre, sig, msDwg) => { const t0 = performance.now(), r = await leerDXFLotes(t, sig, avanceDXF);
   const tiempo = { dwg: msDwg || 0, leer: performance.now() - t0, mb: t.length / 1048576 };
   try { console.info("Mini Civil · abrir " + nombre + ": " + (tiempo.dwg / 1000).toFixed(1) + " s pasando el DWG + " + (tiempo.leer / 1000).toFixed(1) + " s leyendo · DXF de " + tiempo.mb.toFixed(1) + " MB · " + r.objs.length + " objetos"); } catch (_) {}
   return { nombre, texto: t, r, tiempo, aMetros: !!(r.unidades && r.unidades.conocida && r.unidades.factor !== 1) }; };
@@ -5054,7 +5356,7 @@ function panelDXF({ W, dib, h, dxfIn, setDxfIn, dibujarDXF }) {
   const leerArchivo = file => {
     if (!file) return;
     setDxfIn({ nombre: file.name, leyendo: true, kb: Math.round(file.size / 1024) });
-    leerArchivoPlano(file).then(({ texto, ms }) => setTimeout(() => setDxfIn(abrirDXF(texto, file.name, dib.sig, ms)), 40))
+    leerArchivoPlano(file).then(({ texto, ms }) => abrirDXF(texto, file.name, dib.sig, ms)).then(r => setDxfIn(d => d && d.leyendo ? r : d))
       .catch(e => { setDxfIn({ texto: "", nombre: "" }); alert("No se pudo leer el archivo: " + (e && e.message || e)); });
   };
   const elegir = () => { const i = document.createElement("input"); i.type = "file"; i.accept = ".dxf,.dwg"; i.onchange = () => leerArchivo(i.files && i.files[0]); i.click(); };
@@ -5064,7 +5366,8 @@ function panelDXF({ W, dib, h, dxfIn, setDxfIn, dibujarDXF }) {
       h("button", { onClick: () => setDxfIn(null), "aria-label": "Cerrar", style: { border: "none", background: "none", cursor: "pointer", color: C.muted, padding: 4 } }, h(Icono, { n: "x", size: 18 }))), hijos);
 
   if (dxfIn.leyendo) return caja(h("div", { className: "mc-dxf-leyendo", style: { fontSize: 14, color: C.text, padding: "18px 4px", lineHeight: 1.6 } },
-    h("b", null, "Leyendo el archivo…"), h("div", { style: { fontSize: 12.5, color: C.muted, marginTop: 4 } }, (dxfIn.kb || 0).toLocaleString("es-CO") + " KB. Con archivos grandes puede tardar unos segundos.")));
+    h("b", null, "Leyendo el archivo…"), h("div", { style: { fontSize: 12.5, color: C.muted, marginTop: 4 } }, (dxfIn.kb || 0).toLocaleString("es-CO") + " KB. Con archivos grandes puede tardar unos segundos."),
+    h("div", { style: { height: 6, borderRadius: 3, background: C.border, overflow: "hidden", marginTop: 10 } }, h("div", { className: "mc-dxf-avance", style: { height: "100%", width: "0%", background: C.accent, transition: "width .2s" } }))));
   if (!dxfIn.texto) return caja(h(React.Fragment, null,
     tit("QUÉ SE TRAE DEL ARCHIVO"),
     pp("Puntos, líneas, polilíneas (con sus curvas), círculos, arcos y textos. Las capas dan el color de cada objeto, y los bloques se dibujan con sus líneas."),
