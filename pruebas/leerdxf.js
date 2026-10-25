@@ -114,6 +114,71 @@ const DXF = ['0','SECTION','2','HEADER','9','$ACADVER','1','AC1015','0','ENDSEC'
     'ida y vuelta por DXF: la curvatura, el área (' + ida.area1.toFixed(4) + ') y el perímetro quedan iguales');
   ok(casi(ida.r, 2.5), 'el círculo vuelve con su radio exacto');
 
+  // ── v48: lo que antes no se traía: SPLINE, MLINE, TRACE, mallas, tablas de AutoCAD y la lista de clases (Civil 3D) ──
+  const v48 = await p.evaluate(() => {
+    const D = a => a.map(String);
+    const t = D(['0', 'SECTION', '2', 'CLASSES', '0', 'CLASS', '1', 'AECC_COGO_POINT', '2', 'AeccDbCogoPoint', '3', 'Civil', '90', '0', '91', '5', '280', '0', '281', '1', '0', 'ENDSEC',
+      '0', 'SECTION', '2', 'BLOCKS', '0', 'BLOCK', '2', '*T1', '10', '0', '20', '0', '0', 'LINE', '8', '0', '10', '500', '20', '0', '11', '510', '21', '0', '0', 'ENDBLK', '0', 'ENDSEC',
+      '0', 'SECTION', '2', 'ENTITIES',
+      // spline de grado 2 con nudos 0 0 0 1 1 1: es una parábola; a la mitad vale 0.25·P0 + 0.5·P1 + 0.25·P2 = (5, 5)
+      '0', 'SPLINE', '8', '0', '70', '8', '71', '2', '72', '6', '73', '3', '74', '0', '40', '0', '40', '0', '40', '0', '40', '1', '40', '1', '40', '1',
+      '10', '0', '20', '0', '30', '0', '10', '5', '20', '10', '30', '0', '10', '10', '20', '0', '30', '0',
+      // multilínea de 2 líneas: la de corrimiento 0 y la de corrimiento -2 a lo largo del inglete (0, 1)
+      '0', 'MLINE', '8', '0', '71', '0', '72', '2', '73', '2', '10', '100', '20', '0',
+      '11', '100', '21', '0', '12', '1', '22', '0', '13', '0', '23', '1', '74', '2', '41', '0', '41', '0', '75', '0', '74', '2', '41', '-2', '41', '0', '75', '0',
+      '11', '120', '21', '0', '12', '1', '22', '0', '13', '0', '23', '1', '74', '2', '41', '0', '41', '0', '75', '0', '74', '2', '41', '-2', '41', '0', '75', '0',
+      '0', 'TRACE', '8', '0', '10', '200', '20', '0', '11', '210', '21', '0', '12', '200', '22', '5', '13', '210', '23', '5',
+      // malla de caras: 4 vértices y 2 caras
+      '0', 'POLYLINE', '8', '0', '70', '64', '71', '4', '72', '2',
+      '0', 'VERTEX', '8', '0', '10', '300', '20', '0', '30', '1', '70', '192', '0', 'VERTEX', '8', '0', '10', '310', '20', '0', '30', '2', '70', '192',
+      '0', 'VERTEX', '8', '0', '10', '310', '20', '10', '30', '3', '70', '192', '0', 'VERTEX', '8', '0', '10', '300', '20', '10', '30', '4', '70', '192',
+      '0', 'VERTEX', '8', '0', '10', '0', '20', '0', '70', '128', '71', '1', '72', '2', '73', '3', '0', 'VERTEX', '8', '0', '10', '0', '20', '0', '70', '128', '71', '1', '72', '-3', '73', '4',
+      '0', 'SEQEND',
+      // malla de cuadrícula 2 × 3: 2 filas y 3 columnas
+      '0', 'POLYLINE', '8', '0', '70', '16', '71', '2', '72', '3',
+      '0', 'VERTEX', '8', '0', '10', '400', '20', '0', '0', 'VERTEX', '8', '0', '10', '401', '20', '0', '0', 'VERTEX', '8', '0', '10', '402', '20', '0',
+      '0', 'VERTEX', '8', '0', '10', '400', '20', '1', '0', 'VERTEX', '8', '0', '10', '401', '20', '1', '0', 'VERTEX', '8', '0', '10', '402', '20', '1', '0', 'SEQEND',
+      '0', 'ACAD_TABLE', '8', '0', '2', '*T1', '10', '500', '20', '0',
+      '0', 'ENDSEC', '0', 'EOF']).join('\n');
+    const r = leerDXF(t, 1), O = r.objs;
+    const sp = O.find(o => o.t === 'pl' && o.v.length > 10 && o.v[0].x === 0), mitad = sp && sp.v[Math.round((sp.v.length - 1) / 2)];
+    const ml = O.filter(o => o.t === 'pl' && o.v.length === 2 && o.v[0].x === 100);
+    const tr = O.find(o => o.t === 'pl' && o.som === 'relleno' && o.v.some(q => q.x === 200));
+    const caras = O.filter(o => o.t === 'pl' && o.c && o.v.some(q => q.x === 300));
+    const cuad = O.filter(o => o.t === 'pl' && o.v.every(q => q.x >= 400 && q.x <= 402));
+    const tabla = O.find(o => o.t === 'l' && o.a.x === 500 && o.b.x === 510);
+    return { mitad, ml: ml.map(o => o.v.map(q => [q.x, q.y])), tr: tr && tr.v.length, caras: caras.map(o => o.v.map(q => q.z)), cuad: cuad.map(o => o.v.length).sort(),
+      tabla: !!tabla, saltados: r.saltados, resumen: r.resumen.map(x => x.tipo) };
+  });
+  ok(v48.mitad && casi(v48.mitad.x, 5, 1e-6) && casi(v48.mitad.y, 5, 1e-6), 'SPLINE: la curva de verdad (la parábola pasa por (5, 5) a la mitad), no sus puntos de control: ' + JSON.stringify(v48.mitad));
+  ok(JSON.stringify(v48.ml) === JSON.stringify([[[100, 0], [120, 0]], [[100, -2], [120, -2]]]), 'MLINE: sus 2 líneas, la segunda corrida 2 m por el inglete: ' + JSON.stringify(v48.ml));
+  ok(v48.tr === 4, 'TRACE: entra como relleno de 4 esquinas');
+  ok(JSON.stringify(v48.caras) === JSON.stringify([[1, 2, 3], [1, 3, 4]]), 'malla de caras: 2 caras con las cotas de sus vértices: ' + JSON.stringify(v48.caras));
+  ok(JSON.stringify(v48.cuad) === JSON.stringify([2, 2, 2, 3, 3]), 'malla de cuadrícula 2 × 3: 2 filas de 3 y 3 columnas de 2: ' + JSON.stringify(v48.cuad));
+  ok(v48.tabla && v48.resumen.includes('TABLA'), 'tabla de AutoCAD: se dibuja su bloque *T');
+  ok(v48.saltados.some(x => x.tipo === 'AECC_COGO_POINT' && x.n === 5), 'lo de Civil 3D que no se puede leer se cuenta en "no se trae" (5 AECC_COGO_POINT): ' + JSON.stringify(v48.saltados));
+
+  // ── v48: presentaciones (espacio papel). Ventana con centro (50, 50) en el papel, 40 × 20, que mira el modelo en (50, 0) con
+  // 10 de alto: escala 2. La línea del modelo (0,0)–(100,0) cae en el papel en y = 50 y se recorta a x de 30 a 70 ──
+  const pres = await p.evaluate(() => {
+    const t = ['0', 'SECTION', '2', 'TABLES', '0', 'BLOCK_RECORD', '5', 'A1', '2', '*Paper_Space', '0', 'ENDSEC',
+      '0', 'SECTION', '2', 'BLOCKS', '0', 'BLOCK', '2', '*Paper_Space', '10', '0', '20', '0', '0', 'ENDBLK', '0', 'ENDSEC',
+      '0', 'SECTION', '2', 'ENTITIES',
+      '0', 'LINE', '8', '0', '10', '0', '20', '0', '11', '100', '21', '0',
+      '0', 'LINE', '8', '0', '67', '1', '10', '0', '20', '0', '11', '297', '21', '0',   // del papel (67 = 1): no va al modelo
+      '0', 'VIEWPORT', '8', '0', '67', '1', '10', '148', '20', '105', '40', '297', '41', '210', '68', '1', '69', '1', '12', '148', '22', '105', '45', '210',
+      '0', 'VIEWPORT', '8', '0', '67', '1', '10', '50', '20', '50', '40', '40', '41', '20', '68', '2', '69', '2', '12', '50', '22', '0', '16', '0', '26', '0', '36', '1', '45', '10',
+      '0', 'ENDSEC', '0', 'SECTION', '2', 'OBJECTS', '0', 'LAYOUT', '330', '1A', '1', 'Lámina 1', '71', '1', '330', 'A1', '0', 'ENDSEC', '0', 'EOF'].join('\n');
+    const r = leerDXF(t, 1), L = r.presentaciones[0];
+    const recorte = L && L.objs.find(o => o.t === 'l' && o.a.y === 50);
+    return { modelo: r.objs.length, n: r.presentaciones.length, nombre: L && L.nombre, ventanas: L && L.ventanas, recorte: recorte && [[recorte.a.x, recorte.a.y], [recorte.b.x, recorte.b.y]],
+      papel: L && L.objs.some(o => o.t === 'l' && o.b.x === 297) };
+  });
+  ok(pres.modelo === 1, 'la línea del papel (67 = 1) no se mezcla con el modelo: ' + pres.modelo + ' objeto en el modelo');
+  ok(pres.n === 1 && pres.nombre === 'Lámina 1' && pres.ventanas === 1 && pres.papel, 'la presentación "Lámina 1" trae su papel y 1 ventana (la de la hoja entera no cuenta)');
+  ok(pres.recorte && pres.recorte.every((q, i) => casi(q[0], [30, 70][i], 1e-9) && casi(q[1], 50, 1e-9)),
+    'en la ventana, la línea del modelo queda a escala 2 y recortada al marco: de (30, 50) a (70, 50): ' + JSON.stringify(pres.recorte));
+
   // ── v47: los 256 colores de AutoCAD entran con su color exacto y vuelven con su número ──
   const aci = await p.evaluate(() => {
     const lin = c => ['0', 'LINE', '8', '0', '62', String(c), '10', '0', '20', '0', '11', '10', '21', '0'];

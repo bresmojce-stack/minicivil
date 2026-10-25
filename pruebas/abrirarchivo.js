@@ -66,8 +66,11 @@ const path = require('path'), http = require('http'), fs = require('fs'), os = r
 
   // ── sin internet: el lector de DWG quedó guardado ──
   await p.waitForFunction(async () => { const c = await caches.open('minicivil-libredwg-0.8.2'); return !!(await c.match('./lib/libredwg/wasm/libredwg-web.wasm')); }, null, { timeout: 60000 }).catch(() => {});
-  const guardada = await p.evaluate(async () => { const c = await caches.open('minicivil-libredwg-0.8.2'); return (await c.keys()).length; });
-  ok(guardada === 5, 'el lector de DWG quedó guardado en el equipo (' + guardada + ' de 5 archivos)');
+  // v48: la librería (3 archivos) en su espacio; el lector y el paso a DXF, que son de la app, con la versión
+  const guardada = await p.evaluate(async () => { const c = await caches.open('minicivil-libredwg-0.8.2'), ks = await caches.keys();
+    const v = await caches.open(ks.find(k => /^minicivil-v\d+$/.test(k)) || 'x');
+    return { lib: (await c.keys()).length, app: !!(await v.match('./lib/libredwg/lector.js')) && !!(await v.match('./lib/libredwg/dwg_a_dxf.js')) }; });
+  ok(guardada.lib === 3 && guardada.app, 'el lector de DWG quedó guardado en el equipo (' + JSON.stringify(guardada) + ')');
   await p.waitForFunction(() => navigator.serviceWorker && navigator.serviceWorker.controller, null, { timeout: 30000 }).catch(() => {});
   await ctx.setOffline(true);
   await p.goto(url); await p.waitForSelector('.tv-main', { timeout: 20000 });

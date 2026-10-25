@@ -49,7 +49,7 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 
 ## Al publicar (solo cuando Brian lo autorice)
 - Subir `TV_VERSION` en index.html, `CACHE_VERSION` en sw.js (ej. "2" y "minicivil-v2") y la versión del
-  `<title>` (hoy "Mini Civil v47").
+  `<title>` (hoy "Mini Civil v48").
 - `node pruebas/sintaxis.js` (sintaxis de cada `<script>` y versión igual en los dos archivos; corre también en
   GitHub en cada push a `main`, `.github/workflows/sintaxis.yml`).
 - Batería completa: `node pruebas/correr.js` (50 pruebas en PC, celular y tablet, también sin conexión con servidor real; `SOLO=nombre` corre algunas). Rápidas: `node pruebas/abrir.js` y `W=390 node pruebas/abrir.js` (PC y celular); `node pruebas/importar.js` si se tocaron los puntos o el DXF; `node pruebas/nube.js` si se tocó Drive o los datos.
@@ -74,6 +74,29 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 | PROYECTOS (Mini Civil) | **Espacio en el celular (v26)**: en la pestaña Dibujo no se dibuja `mc-barra-proy`; el botón de volver (`mc-volver`, solo la flecha) y `tv-acciones` (tema, Drive, guardado) van dentro de la fila del dibujo (`mc-barra-dib`), que `App` le pasa a `TabDibujo` en el prop `cabecera`. En las otras pestañas la fila sigue igual. En el Dibujo, nuevo/renombrar/duplicar/borrar/importar/tabla/DXF se fueron al menú `⋯` (`mc-mas`, panel `tv-dib-mas`, botones `mc-mas-*`), y la franja de comando `tv-dib-cmd` flota sobre el lienzo (`position: absolute`, ancho al contenido, `pointer-events: none` salvo en sus botones por la regla del `<style>`; se parte en varias líneas si hay muchos botones). El lienzo pasa de 479 a 601 px en el celular (del 57 % al 71 % de la pantalla). `proyectoNuevo` (`{ id, nombre, creado, dibujos }`), `useLocalProyectos` (guarda en `TV_KEY`, con deshacer), `copiaDeProyectos` (para `FalloApp`), `Logo`, `TarjetaNube`, `PantallaProyectos`, `App` (inicio = lista de proyectos; proyecto = pestañas `nav.tab`: Dibujo, Superficies…; desde la v22, dentro de un proyecto NO se dibuja la barra `tv-header`: el tema, Drive y el estado de guardado van en la fila del proyecto `mc-barra-proy`, y `tv-main` lleva `mc-sin-barra` para el margen de la franja de estado del celular. En el inicio la barra con el logo sigue), `FalloApp`, arranque y aviso de versión nueva |
 
 ## Estado y lo que sigue
+- Versión 48 (2026-10-25, plan de Brian "Fase 3: blindaje del lector DWG/DXF y rescate de entidades" + "debería poder abrir
+  también las presentaciones"). **Rescate en `leerDXF`** (y en `dwgADxf` para el DWG): SPLINE como curva de verdad
+  (`puntosSpline`: de Boor con nudos y pesos; sin puntos de control, por los de ajuste), MLINE (cada línea corrida por el inglete,
+  el primer 41 de cada 74), TRACE (como SOLID), tablas de AutoCAD (`ACAD_TABLE` → su bloque `*T`, como DIMENSION; en el DWG
+  LibreDWG no trae el enlace: se emparejan en orden si hay tantos `*T` como tablas), mallas POLYLINE (64 = caras con 71–74 →
+  figuras con cotas; 16 = cuadrícula M × N → filas y columnas; antes "MALLA" sin dibujar; en DWG LibreDWG no las entrega) y la
+  **lista de clases** (sección CLASSES; `dwgADxf` la escribe de `db.classes`): las de entidad con instancias que no salieron como
+  nada dibujable se cuentan en "No se trae" ("Civil 3D: AECC_…"; Canal Azcárate: 27 AECC_GENERAL_NOTE_LABEL). La consola dice
+  qué no se trajo y cuánto tardó (`abrirDXF` guarda `tiempo` = { dwg, leer, mb }; la revisión: "Leído en X s · plano de N MB").
+  **Lectura por cursor**: `leerDXF` ya no hace `split` del texto entero (`linea()` con `indexOf`), mismo resultado con \n, \r\n
+  y \r; DXF de 93 MB: 4,7 s contra 7,5 (tope 700 MB) y 6,8 contra 11,3 (tope 625 MB). **Presentaciones**: `dwgADxf` escribe
+  los registros de bloque de papel (TABLES `BLOCK_RECORD` 5/2), un BLOCK `*Paper_Space…` por presentación con sus objetos y sus
+  VIEWPORT (10/20 centro, 40/41 tamaño, 12/22 centro de la vista, 17/27 punto mirado, 16/26/36 dirección, 45 alto de la vista,
+  51 giro) y los LAYOUT en OBJECTS (1 nombre, 71 orden, 330 = registro, como en AutoCAD). `leerDXF` devuelve `presentaciones`
+  [{ nombre, objs, ventanas }]: el papel de cada una (de su bloque, o de ENTITIES con 67 = 1 si es la activa; esos ya no se mezclan
+  con el modelo) y en cada ventana (`verVentana`; la primera de cada presentación es la hoja entera y no cuenta; el 68 "apagada"
+  no sirve) el modelo pasado al papel (escala = alto / alto de la vista) y recortado al marco (`recortar`: entero si cabe,
+  Liang–Barsky por tramos, Sutherland–Hodgman para lo relleno), más el marco abierto. En `panelDXF`, "PRESENTACIONES" con una
+  casilla por cada una (`dxfIn.presNo`), y `dibujarDXF(r, destino, factor, presNo)` las agrega como dibujos "<archivo> ·
+  <presentación>" en el mismo paso de Deshacer, sin pasar a metros (son papel). `sw.js`: `lector.js` y `dwg_a_dxf.js` van con
+  la versión de la app (antes con la librería y podían quedar viejos). Pruebas nuevas en `leerdxf.js` (SPLINE, MLINE, TRACE, mallas,
+  tabla, Civil 3D, presentación con escala 2 y recorte exacto). Los modelos de los 4 DWG de Brian salen iguales a la v47.
+  Batería: 50 de 50; DXF idéntico byte por byte. Pendiente posible: leer el DXF en un Worker (con 93 MB la pantalla se queda ~5 s).
 - Versión 47 (2026-10-25, Brian: "los 204 colores de AutoCAD de SOLEVANTE"; eligió "color exacto"): los 204 eran 204 objetos con
   el ACI 140 que `DXF_ACI` no tenía (salían con el color de siempre). Ahora `ACI_RGB` (los 256 colores de AutoCAD, 6 cifras por índice,
   tabla de ezdxf, MIT) y `aciHex(i)`: en `leerDXF`, `colorDe` sigue usando `DXF_ACI` (los que ya tenían un color de la app no cambian)
