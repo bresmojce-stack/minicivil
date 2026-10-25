@@ -49,7 +49,7 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 
 ## Al publicar (solo cuando Brian lo autorice)
 - Subir `TV_VERSION` en index.html, `CACHE_VERSION` en sw.js (ej. "2" y "minicivil-v2") y la versión del
-  `<title>` (hoy "Mini Civil v52").
+  `<title>` (hoy "Mini Civil v53").
 - `node pruebas/sintaxis.js` (sintaxis de cada `<script>` y versión igual en los dos archivos; corre también en
   GitHub en cada push a `main`, `.github/workflows/sintaxis.yml`).
 - Batería completa: `node pruebas/correr.js` (52 pruebas en PC, celular y tablet, también sin conexión con servidor real; `SOLO=nombre` corre algunas). Rápidas: `node pruebas/abrir.js` y `W=390 node pruebas/abrir.js` (PC y celular); `node pruebas/importar.js` si se tocaron los puntos o el DXF; `node pruebas/nube.js` si se tocó Drive o los datos.
@@ -74,6 +74,15 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 | PROYECTOS (Mini Civil) | **Espacio en el celular (v26)**: en la pestaña Dibujo no se dibuja `mc-barra-proy`; el botón de volver (`mc-volver`, solo la flecha) y `tv-acciones` (tema, Drive, guardado) van dentro de la fila del dibujo (`mc-barra-dib`), que `App` le pasa a `TabDibujo` en el prop `cabecera`. En las otras pestañas la fila sigue igual. En el Dibujo, nuevo/renombrar/duplicar/borrar/importar/tabla/DXF se fueron al menú `⋯` (`mc-mas`, panel `tv-dib-mas`, botones `mc-mas-*`), y la franja de comando `tv-dib-cmd` flota sobre el lienzo (`position: absolute`, ancho al contenido, `pointer-events: none` salvo en sus botones por la regla del `<style>`; se parte en varias líneas si hay muchos botones). El lienzo pasa de 479 a 601 px en el celular (del 57 % al 71 % de la pantalla). `proyectoNuevo` (`{ id, nombre, creado, dibujos }`), `useLocalProyectos` (guarda en `TV_KEY`, con deshacer), `copiaDeProyectos` (para `FalloApp`), `Logo`, `TarjetaNube`, `PantallaProyectos`, `App` (inicio = lista de proyectos; proyecto = pestañas `nav.tab`: Dibujo, Superficies…; desde la v22, dentro de un proyecto NO se dibuja la barra `tv-header`: el tema, Drive y el estado de guardado van en la fila del proyecto `mc-barra-proy`, y `tv-main` lleva `mc-sin-barra` para el margen de la franja de estado del celular. En el inicio la barra con el logo sigue), `FalloApp`, arranque y aviso de versión nueva |
 
 ## Estado y lo que sigue
+- Versión 53 (2026-10-25, Brian: "te dije WebGPU lo implementarás, si lo usa AutoCAD Web es porque funciona"; "publica y luego
+  probamos contra los números de la v52"): **WebGPU** (`GPU`, `iniciarGPU`, `motorGPU`, shaders `WGSL_L`/`WGSL_T`) con lo mismo
+  que `motorGL` y la misma forma (`cargar(r)`, `pintar(v, W, H, dpr, O, tope)`): líneas con tipo, rellenos y rayado, puntos, letras
+  del atlas (con sus versiones achicadas hechas a mano), alto + resto, MSAA 4. Orden: WebGPU si el navegador da dispositivo; si no,
+  si falla (`GPU.malo`) o si se pierde, WebGL 2; sin ninguna, el canvas. Al arrancar pinta un cuadrito rojo y revisa que llegue al
+  canvas 2D con drawImage: si llega vacío no se usa (pasó con WebGPU por software en la nube). `window.MC_SIN_GPU` la apaga;
+  `MC_DIB.gl.motor` = "webgpu" | "webgl". WebGPU solo existe en https o localhost (no en file://: las pruebas de la batería siguen
+  en WebGL). `WEBGPU=1 node pruebas/webgl.js` la prueba por http (en la nube cae a WebGL por la prueba del cuadrito; medir en la PC
+  de Brian). Pendiente: medir contra la v52 en la PC de Brian.
 - Versión 52 (2026-10-25, Brian: "aplica todo lo del texto que nos haga falta", con el estudio de cómo logran fluidez AutoCAD Web y
   Onshape; "publica"). (1) **La tarjeta gráfica pinta también de cerca**: con el zoom al máximo los 32 bits no alcanzaban y se
   volvía al canvas (lento). Ahora cada coordenada (desde el origen `G.O`) va en dos números de 32 bits, alto + resto (`f32`), y el
