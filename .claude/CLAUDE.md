@@ -49,7 +49,7 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 
 ## Al publicar (solo cuando Brian lo autorice)
 - Subir `TV_VERSION` en index.html, `CACHE_VERSION` en sw.js (ej. "2" y "minicivil-v2") y la versión del
-  `<title>` (hoy "Mini Civil v49").
+  `<title>` (hoy "Mini Civil v50").
 - `node pruebas/sintaxis.js` (sintaxis de cada `<script>` y versión igual en los dos archivos; corre también en
   GitHub en cada push a `main`, `.github/workflows/sintaxis.yml`).
 - Batería completa: `node pruebas/correr.js` (50 pruebas en PC, celular y tablet, también sin conexión con servidor real; `SOLO=nombre` corre algunas). Rápidas: `node pruebas/abrir.js` y `W=390 node pruebas/abrir.js` (PC y celular); `node pruebas/importar.js` si se tocaron los puntos o el DXF; `node pruebas/nube.js` si se tocó Drive o los datos.
@@ -74,6 +74,31 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 | PROYECTOS (Mini Civil) | **Espacio en el celular (v26)**: en la pestaña Dibujo no se dibuja `mc-barra-proy`; el botón de volver (`mc-volver`, solo la flecha) y `tv-acciones` (tema, Drive, guardado) van dentro de la fila del dibujo (`mc-barra-dib`), que `App` le pasa a `TabDibujo` en el prop `cabecera`. En las otras pestañas la fila sigue igual. En el Dibujo, nuevo/renombrar/duplicar/borrar/importar/tabla/DXF se fueron al menú `⋯` (`mc-mas`, panel `tv-dib-mas`, botones `mc-mas-*`), y la franja de comando `tv-dib-cmd` flota sobre el lienzo (`position: absolute`, ancho al contenido, `pointer-events: none` salvo en sus botones por la regla del `<style>`; se parte en varias líneas si hay muchos botones). El lienzo pasa de 479 a 601 px en el celular (del 57 % al 71 % de la pantalla). `proyectoNuevo` (`{ id, nombre, creado, dibujos }`), `useLocalProyectos` (guarda en `TV_KEY`, con deshacer), `copiaDeProyectos` (para `FalloApp`), `Logo`, `TarjetaNube`, `PantallaProyectos`, `App` (inicio = lista de proyectos; proyecto = pestañas `nav.tab`: Dibujo, Superficies…; desde la v22, dentro de un proyecto NO se dibuja la barra `tv-header`: el tema, Drive y el estado de guardado van en la fila del proyecto `mc-barra-proy`, y `tv-main` lleva `mc-sin-barra` para el margen de la franja de estado del celular. En el inicio la barra con el logo sigue), `FalloApp`, arranque y aviso de versión nueva |
 
 ## Estado y lo que sigue
+- Versión 50 (2026-10-25, Brian: "que mi app sea tan fluida como Onshape web o AutoCAD web"; planes "Fase 5: time-slicing" y
+  "Fase 6: WebGL"; medido con la GPU de verdad en la PC de Brian, AMD Radeon 760M, desde una sesión de Claude allá, con el UBE1801
+  de 17 MB, 66 000 objetos, 3 millones de tramos). **Líneas y rellenos de los dibujos grandes en la tarjeta gráfica** (sección LÍNEAS
+  EN LA TARJETA GRÁFICA, junto a `guionLinea`): un dibujo con más de `GL_DESDE` = 20 000 trazos arma sus tramos por lotes
+  (`tramosGL`, cede cada `GL_LOTE` objetos, barra `mc-progreso` con `avisoBarra`) y `motorGL` (WebGL 2 propio, sin three.js para
+  pintar: cada tramo es un rectángulo de 2 px instanciado, el tipo de línea se corta en el shader; los rellenos se parten con
+  `THREE.ShapeUtils.triangulateShape` y el rayado es por píxel, a 45° cada 9 px) los pinta en un canvas aparte que `pintarFondo`
+  copia: rellenos, foto con los textos, líneas y puntos (el orden de siempre). Coordenadas a 32 bits desde un origen `G.O` solo para
+  pintar (los datos siguen en 64 bits); de cerca, donde no alcanza, `trazosCerca` y `pintarRellenos` en el canvas como antes. Estado
+  en `glRef` (registrado antes de `if (!dib)`). Sin WebGL 2 o con menos de 20 000 trazos, todo igual que la v49 (las pruebas usan
+  dibujos pequeños; `window.MC_SIN_GL` lo apaga para comparar). Si el celular le quita el contexto, se arma de nuevo (hasta 3
+  veces). En el svg de encima y en los puntos ya no se recorre todo el plano en cada cuadro (`svgCandidatos`, `GP.pts`).
+  **Guardado sin congelar**: `pasaDe` (no arma el JSON de 238 MB solo para saber que no cabe en localStorage) y `guardarProyectosIdb`
+  (un dibujo de más de `TROZO_DESDE` objetos va a IndexedDB en pedazos de `TROZO` = 5 000, cada uno en su turno; el registro lleva
+  `__trozos` en vez de `objs`; solo se reescriben los pedazos que cambiaron; `juntarTrozos` al abrir; si falta un pedazo no carga
+  ni escribe encima; `terminarTrozosYa` al cerrar o esconder la app). **Lectura del DXF por lotes** con barra (`leerDXFPasos` es
+  un generador que cede también dentro de los bloques y de las presentaciones; `leerDXF` lo corre de una para las pruebas;
+  `leerDXFLotes` y `abrirDXF` async, `.mc-dxf-avance`): mismo resultado (modelo y presentaciones iguales). Medido en la PC de
+  Brian, v49 → v50: Dibujar 3,3 s (2,7 s congelada) → 1 s sin tareas de más de 0,2 s; acercar 33 ms con picos de 200 → 16,7 ms
+  clavados; soltar 0,16 s → nada; lectura: peor pausa 0,8 s → 0,07 s; memoria tras recolección 323 MB. Con el UBE1901 (223 000
+  objetos) en la nube: Dibujar 8,3 → 1,5 s. Pendiente (ideas, con boceto): no rearmar todo al editar un plano grande (hoy se rearma
+  en segundo plano ~0,5 s y mientras tanto se ve lo anterior), textos y bloques en la tarjeta, leer el DWG directo sin pasar por
+  texto (ahorraría ~6 s, pero sería otro lector), y lo de las ideas de Onshape/AutoCAD y lo topográfico que mandó la sesión de la PC.
+  La sesión en la nube no tiene GPU: lo de fluidez se mide en la PC de Brian (sesión por Remote Control, scripts en
+  C:\Users\bresm\medir_gpu, rama aparte para probar). Batería: 50 de 50; DXF idéntico byte por byte.
 - Versión 49 (2026-10-25, con el DWG real de Brian "UBE1901 … DISEÑO VIAL FASE 4", 21,6 MB, 223 037 objetos): **un `Path2D`
   por objeto** en `pintarTrazos` (caché `caminosRef`: `g.porT` = tamaño → lista de caminos; y en el modo de cerca, `g.L`). Juntar
   todo lo de un estilo en un solo camino hacía que Chrome tardara 110 s en armarlo y 280–360 s en pintarlo (el costo crece mucho
