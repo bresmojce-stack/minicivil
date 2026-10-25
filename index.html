@@ -2669,7 +2669,7 @@ const tipoDeLT = n => { const t = String(n || "").toUpperCase();
 function leerDXF(texto, sig) { const g = leerDXFPasos(texto, sig); let r = g.next(); while (!r.done) r = g.next(); return r.value; }
 async function leerDXFLotes(texto, sig, avance) {
   const g = leerDXFPasos(texto, sig); let r = g.next(), t = performance.now();
-  while (!r.done) { if (performance.now() - t > 40) { if (avance) avance(r.value); await new Promise(z => setTimeout(z, 0)); t = performance.now(); } r = g.next(); }
+  while (!r.done) { if (performance.now() - t > 40) { if (avance && r.value != null) avance(r.value); await new Promise(z => setTimeout(z, 0)); t = performance.now(); } r = g.next(); }
   return r.value;
 }
 function* leerDXFPasos(texto, sig) {
@@ -2987,19 +2987,22 @@ function* leerDXFPasos(texto, sig) {
 
   // ── entidades ──
   let objs = [], verVentana = null;   // v48: objs cambia mientras se lee cada presentación; verVentana = qué hacer con una ventana
-  const procesar = (lista, trans, prof) => {
+  // v50: procesar y verVentana ceden la pantalla cada tanto (yield), también dentro de un bloque enorme insertado
+  let pasoN = 0;
+  const procesar = function* (lista, trans, prof) {
     for (let i = 0; i < lista.length; i++) {
+      if (++pasoN % 400 === 0) yield;
       const it = lista[i];
       // ATTRIB va con su INSERT; ATTDEF es la plantilla del atributo dentro del bloque (AutoCAD no la muestra en los insertados)
       if (it.t === "VERTEX" || it.t === "SEQEND" || it.t === "ATTRIB" || it.t === "ATTDEF") continue;
-      if (it.t === "VIEWPORT") { if (verVentana) verVentana(it); continue; }   // v48: ventana de una presentación (en el modelo no va)
+      if (it.t === "VIEWPORT") { if (verVentana) yield* verVentana(it); continue; }   // v48: ventana de una presentación (en el modelo no va)
       // los puntos de la capa DEFPOINTS son los de definición de las cotas de AutoCAD, no del levantamiento
       if (it.t === "POINT" && /^DEFPOINTS$/i.test(txt(it, 8))) continue;
       // cota de AutoCAD: ya viene dibujada en su bloque (*D…), con coordenadas del dibujo
       if (it.t === "DIMENSION" || it.t === "ACAD_TABLE") {   // v48: la tabla de AutoCAD también viene dibujada en su bloque (*T…)
         const b = bloques[txt(it, 2)], cl = it.t === "DIMENSION" ? "COTA" : "TABLA";
         if (!b || prof >= 4) { saltados[it.t] = (saltados[it.t] || 0) + 1; continue; }
-        procesar(b.items, trans, prof + 1); resumen[cl] = (resumen[cl] || 0) + 1; continue;
+        yield* procesar(b.items, trans, prof + 1); resumen[cl] = (resumen[cl] || 0) + 1; continue;
       }
       if (it.t === "INSERT") {
         // Mini Civil v35: los puntos topográficos de Civil 3D, Topcon y Leica vienen como BLOQUE con ATRIBUTOS
@@ -3049,7 +3052,7 @@ function* leerDXFPasos(texto, sig) {
           let r = { x: px + dx * co - dy * si, y: py + dx * si + dy * co, ...(q.z != null ? { z: q.z } : {}), ...(q.b != null ? { b: espejo !== !!(Mi && Mi.espejo) ? -q.b : q.b } : {}) };
           if (Mi) { const w = Mi({ ...r, z: (r.z || 0) + num(it, 30, 0) }); r = { ...r, x: w.x, y: w.y, ...(r.z != null || Math.abs(w.z) > 1e-9 ? { z: w.z } : {}) }; }
           return trans ? trans.p(r) : r; };
-        procesar(b.items, { p: t2, k: (trans ? trans.k : 1) * (estirado ? Math.sqrt(Math.abs(sx * sy)) : Math.abs(sx)), a: (trans ? trans.a : 0) + rot, estirado: estirado || !!Mi || !!(trans && trans.estirado) }, prof + 1);
+        yield* procesar(b.items, { p: t2, k: (trans ? trans.k : 1) * (estirado ? Math.sqrt(Math.abs(sx * sy)) : Math.abs(sx)), a: (trans ? trans.a : 0) + rot, estirado: estirado || !!Mi || !!(trans && trans.estirado) }, prof + 1);
         resumen.BLOQUE = (resumen.BLOQUE || 0) + 1;
         continue;
       }
@@ -3088,7 +3091,7 @@ function* leerDXFPasos(texto, sig) {
   for (let a = 0; a < entidades.length;) {
     let b = Math.min(entidades.length, a + 5000);
     while (b < entidades.length && /^(VERTEX|SEQEND|ATTRIB)$/.test(entidades[b].t)) b++;
-    procesar(a === 0 && b === entidades.length ? entidades : entidades.slice(a, b), null, 0); a = b;
+    yield* procesar(a === 0 && b === entidades.length ? entidades : entidades.slice(a, b), null, 0); a = b;
     yield 0.55 + 0.4 * a / entidades.length;
   }
 
@@ -3100,7 +3103,8 @@ function* leerDXFPasos(texto, sig) {
     if (sec === "TABLES" && it.t === "BLOCK_RECORD" && txt(it, 5)) regs[txt(it, 5).toUpperCase()] = txt(it, 2);
     if (sec === "OBJECTS" && it.t === "LAYOUT") { const h = it.ord.filter(x => x[0] === 330).map(x => String(x[1]).trim().toUpperCase());
       lays.push({ nombre: txt(it, 1), orden: num(it, 71, 0), reg: h[h.length - 1] || "" }); } }
-  const cajasModelo = modelo.map(o => cajaRejilla(o));
+  const cajasModelo = [];
+  if (lays.length) for (let i = 0; i < modelo.length; i++) { if (i % 20000 === 19999) yield; cajasModelo.push(cajaRejilla(modelo[i])); }
   // recortar un objeto (ya en el papel) al rectángulo R de la ventana: entero si cabe, nada si queda afuera, y si no, en pedazos
   const recortar = (o, R) => {
     const b = cajaRejilla(o), dentro = q => q.x >= R.x0 && q.x <= R.x1 && q.y >= R.y0 && q.y <= R.y1;
@@ -3138,12 +3142,12 @@ function* leerDXFPasos(texto, sig) {
     return out.map(v => ({ t: "pl", v, c: false, ...base }));
   };
   const presentaciones = [], resumen0 = { ...resumen }, saltados0 = { ...saltados }, capasN = Object.values(capas).map(c => c.n);
-  lays.filter(l => l.nombre && !/^model$/i.test(l.nombre)).sort((a, b) => a.orden - b.orden).forEach(l => {
+  for (const l of lays.filter(l => l.nombre && !/^model$/i.test(l.nombre)).sort((a, b) => a.orden - b.orden)) {
     const nb = regs[l.reg]; let lista = nb && bloques[nb] ? bloques[nb].items : null;
     if ((!lista || !lista.length) && nb && /^\*paper_space$/i.test(nb)) lista = entidadesPapel;
-    if (!lista || !lista.length) return;
+    if (!lista || !lista.length) continue;
     objs = []; let nV = 0, primera = true;
-    verVentana = it => {
+    verVentana = function* (it) {
       // la primera ventana de cada presentación (o la de número 1) es la hoja entera, no una ventana al modelo. El "apagada" (68 = 0)
       // no sirve: AutoCAD lo pone en todas las ventanas de las presentaciones que no están abiertas
       const hoja = primera || num(it, 69, 0) === 1; primera = false; if (hoja) return;
@@ -3157,18 +3161,19 @@ function* leerDXFPasos(texto, sig) {
       const f = q => { const dx = q.x - Tg.x, dy = q.y - Tg.y; return { x: C.x + s * (dx * co - dy * si - Vc.x), y: C.y + s * (dx * si + dy * co - Vc.y) }; };
       // la parte del modelo que puede verse (un círculo que encierra la ventana), para no pasar todo el plano por cada ventana
       const mc = { x: Tg.x + Vc.x * co + Vc.y * si, y: Tg.y - Vc.x * si + Vc.y * co }, rad = Math.hypot(w, hh) / 2 / s;
-      modelo.forEach((o, i) => { const b = cajasModelo[i];
-        if (b.x1 < mc.x - rad || b.x0 > mc.x + rad || b.y1 < mc.y - rad || b.y0 > mc.y + rad) return;
+      for (let i = 0; i < modelo.length; i++) { if (i % 5000 === 4999) yield;
+        const o = modelo[i], b = cajasModelo[i];
+        if (b.x1 < mc.x - rad || b.x0 > mc.x + rad || b.y1 < mc.y - rad || b.y0 > mc.y + rad) continue;
         let o2 = transformar(o, f, tw); if (o2.r != null) o2 = { ...o2, r: o2.r * s }; if (o2.t === "tx" && o2.h) o2 = { ...o2, h: o2.h * s };
-        recortar(o2, R).forEach(x => objs.push(x)); });
+        recortar(o2, R).forEach(x => objs.push(x)); }
       const cv = colorDe(it, capas[txt(it, 8)] || null);
       // el marco: abierto y volviendo al inicio (una figura cerrada se tiñe en el Dibujo y taparía de celeste lo de adentro)
       objs.push({ t: "pl", v: [{ x: R.x0, y: R.y0 }, { x: R.x1, y: R.y0 }, { x: R.x1, y: R.y1 }, { x: R.x0, y: R.y1 }, { x: R.x0, y: R.y0 }], c: false, ...(cv ? { col: cv } : {}) });
       nV++;
     };
-    procesar(lista, null, 0); verVentana = null;
+    yield* procesar(lista, null, 0); verVentana = null;
     if (objs.length) presentaciones.push({ nombre: l.nombre, objs, ventanas: nV });
-  });
+  }
   objs = modelo;
   // lo contado mientras se leían las presentaciones no es del modelo: la revisión del modelo queda como estaba
   Object.keys(resumen).forEach(k => delete resumen[k]); Object.assign(resumen, resumen0);
@@ -4567,7 +4572,18 @@ function TabDibujo({ proy, onChange, onArchivo, onSupers, cabecera, modoSup, ver
     // así el relleno de las figuras cerradas no se mezcla y lo que se edita sigue siendo su propio elemento.
     // v45: los trazos juntos van en el canvas (pintarFondo); aquí se salta lo que va allá. Lo que se ve se busca en la rejilla.
     const vc = { x: (v0.x + v1.x) / 2, y: (v0.y + v1.y) / 2 }, vr = Math.max(v1.x - v0.x, v1.y - v0.y) / 2 + M;
-    rejObjs().cerca(vc, vr).forEach(i => { const o = visibles[i];   // la rejilla ya descarta por la caja (lo que hacía seVe)
+    // v50: en un dibujo grande casi todo va en el canvas o en la tarjeta: recorrerlo entero en cada cuadro del gesto costaba
+    // ~15 ms. Ahí solo se miran los que van en el svg (cotas, cuadros, piezas, textos sin tamaño…) y los elegidos o señalados.
+    const svgCandidatos = () => { const G = glRef.current;
+      if (G.svgVis !== visibles) { G.svgVis = visibles; G.idxDe = null;
+        G.svgIdx = []; visibles.forEach((o, i) => { if (o.t !== "p" && !JUNTABLES.includes(o.t) && !(o.t === "tx" && o.h)) G.svgIdx.push(i); }); }
+      const ids = [sel, objA && objA.id, herr === "borrar" ? hoverId : null].concat(selSet).filter(x => x != null);
+      if (!ids.length) return G.svgIdx;
+      if (!G.idxDe) { G.idxDe = new Map(); visibles.forEach((o, i) => G.idxDe.set(o.id, i)); }
+      return Array.from(new Set(G.svgIdx.concat(ids.map(id => G.idxDe.get(id)).filter(i => i != null)))).sort((a, b) => a - b); };
+    const enVista = i => { const b = cajaRejilla(visibles[i]);
+      return !(b.x0 <= b.x1 && b.y0 <= b.y1 && isFinite(b.x0 + b.x1 + b.y0 + b.y1)) || (b.x0 <= vc.x + vr && b.x1 >= vc.x - vr && b.y0 <= vc.y + vr && b.y1 >= vc.y - vr); };
+    (visibles.length > GL_DESDE ? svgCandidatos().filter(enVista) : rejObjs().cerca(vc, vr)).forEach(i => { const o = visibles[i];   // la rejilla ya descarta por la caja (lo que hacía seVe)
       const extra = marcado(o) ? { col: "#F59E0B", ancho: 3.5 } : o.id === hoverId && herr === "borrar" ? { col: "#DC2626", ancho: 3 } : null;
       // los puntos sueltos se pintan en la imagen de fondo (pintarFondo); aquí solo el que está elegido o señalado
       if (o.t === "p" && !extra) return;
@@ -4632,8 +4648,10 @@ function TabDibujo({ proy, onChange, onArchivo, onSupers, cabecera, modoSup, ver
     const nTrazos = F.trazos, nTxtPlano = F.textos;
     const E = etqDe(dib); let nPts = 0, nTxt = 0, muestra = null;
     x.lineCap = "round";
-    objs.forEach(o => {
-      if (o.t !== "p" || o.oculto || marcado(o) || o.id === hoverId) return;   // el elegido y el señalado van en el svg, resaltados
+    // v50: los puntos del dibujo, guardados aparte mientras el dibujo no cambie (antes se recorría todo el plano en cada cuadro)
+    const GP = glRef.current; if (GP.ptsDe !== objs) { GP.ptsDe = objs; GP.pts = objs.filter(o => o.t === "p" && !o.oculto); }
+    GP.pts.forEach(o => {
+      if (marcado(o) || o.id === hoverId) return;   // el elegido y el señalado van en el svg, resaltados
       const s = aP(o); if (s.X < -40 || s.X > W + 40 || s.Y < -40 || s.Y > H + 40) return;
       const dv = vecino.get(o.id), cabe = dv === undefined || dv < 0.001 || dv * vista.k >= TXT_PX;
       // la marca es un círculo relleno (v20.1). Antes era un trazo de largo cero con punta redonda: el Chrome del computador lo
