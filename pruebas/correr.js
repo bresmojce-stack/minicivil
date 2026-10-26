@@ -10,7 +10,7 @@ const P = [
   ['superficies PC', 'superficies.js', {}, []], ['superficies celular', 'superficies.js', { W: '390' }, []], ['superficies tablet', 'superficies.js', { W: '820' }, []],
   ['presentación PC', 'presentacion.js', {}, []], ['presentación celular', 'presentacion.js', { W: '390' }, []],
   ['nube', 'nube.js', {}, []], ['sin conexión', 'sinconexion.js', {}, []],
-  ['guardado por pedazos', 'trozos.js', {}, []], ['líneas en la tarjeta gráfica', 'webgl.js', {}, []]
+  ['guardado por pedazos', 'trozos.js', {}, []], ['líneas en la tarjeta gráfica', 'webgl.js', {}, []], ['ver todo PC', 'vertodo.js', {}, []], ['ver todo celular', 'vertodo.js', { W: '390' }, []]
 ];
 const solo = (process.env.SOLO || '').split(',').filter(Boolean);
 const malas = [];

@@ -71,6 +71,25 @@ const WGPU = !!process.env.WEBGPU, MOTOR = WGPU ? 'webgpu' : 'webgl';
     if (Math.abs((X - g.a.X) * uy - (Y - g.a.Y) * ux) / L < 3) junto++; });
   ok(L > 20000 && n > 300 && junto / n > 0.9, 'de cerca (' + Math.round(L / 5) + ' px por metro) la línea cae donde debe (' + Math.round(junto / Math.max(n, 1) * 100) + ' % de ' + n + ' píxeles a menos de 3 px)');
 
+  // v57: borrar en un plano grande no lo rearma entero: la línea se apaga en la tarjeta al momento, y Deshacer la trae de vuelta
+  // (en un motor aparte), sin volver a preparar las 25 000
+  { await imagen(objs, false, { x: 1e6 + 2, y: 2e6 + 1.5 }, 14, -120);
+    const bx = await (await p.$('.tv-dib-fondo')).boundingBox();
+    const rojo = () => p.evaluate(() => { const c = document.querySelector('.tv-dib-fondo'), f = c.width / c.clientWidth, s = MC_DIB.aP({ x: 1e6 + 2, y: 2e6 + 1.5 });
+      const d = c.getContext('2d').getImageData(Math.round(s.X * f) - 2, Math.round(s.Y * f) - 2, 5, 5).data; let n = 0;
+      for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 100 && d[i] > 150 && d[i + 1] < 110 && d[i + 2] < 110) n++; return n; });
+    const antes = await p.evaluate(() => MC_DIB.gl), r0 = await rojo();
+    await p.click('.tv-dib-nav button[data-grupo=editar]'); await p.click('.tv-dib-hoja button[data-herr=borrar]'); await p.waitForTimeout(150);
+    const s = await p.evaluate(() => MC_DIB.aP({ x: 1e6 + 2, y: 2e6 + 1.5 })); const t0 = Date.now();
+    await p.mouse.click(bx.x + s.X, bx.y + s.Y);
+    await p.waitForFunction(() => MC_DIB.gl && MC_DIB.gl.ocultos === 1, null, { timeout: 10000 }).catch(() => {});
+    const ms = Date.now() - t0, tras = await p.evaluate(() => MC_DIB.gl), r1 = await rojo();
+    ok(r0 > 3 && r1 === 0 && tras.ocultos === 1 && tras.ms === antes.ms && tras.listo, 'borrar una línea de un plano grande la quita al momento sin rearmarlo (' + ms + ' ms; rojo ' + r0 + ' → ' + r1 + '; ' + JSON.stringify({ ocultos: tras.ocultos, ms: tras.ms }) + ')');
+    await p.keyboard.press('Control+z');
+    await p.waitForFunction(() => MC_DIB.gl && MC_DIB.gl.aparte === 1, null, { timeout: 10000 }).catch(() => {});
+    const vuelta = await p.evaluate(() => MC_DIB.gl), r2 = await rojo();
+    ok(r2 > 3 && vuelta.aparte === 1 && vuelta.ms === antes.ms, 'Deshacer la trae de vuelta, también sin rearmar (rojo ' + r2 + '; ' + JSON.stringify({ aparte: vuelta.aparte, ms: vuelta.ms }) + ')'); }
+
   // v52: textos con tamaño (giros y alineaciones) y puntos con nombre, también en la tarjeta: comparados con el canvas
   const tp = await p.evaluate(() => { const o = [], AL = ['lb', 'cm', 'rt', 'ld', 'cb']; for (let i = 0; i < 24000; i++) { const x = 5e5 + (i % 150) * 8, y = 1e6 + Math.floor(i / 150) * 8;
     if (i % 2) o.push({ id: 't' + i, t: 'tx', p: { x, y }, s: 'K' + (i % 97) + 'é', h: 1.6, rot: (i % 4) * 0.5, al: AL[i % 5], col: i % 3 ? '#0F172A' : '#2563EB' });

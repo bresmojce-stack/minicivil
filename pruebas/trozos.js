@@ -62,6 +62,14 @@ const path = require('path'), http = require('http'), fs = require('fs');
   const r5 = await p.evaluate(() => ({ idb: DATOS.idb, noEscribir: !!(DATOS.noEscribir && DATOS.noEscribir[TV_KEY]) }));
   ok(r5.idb === false && r5.noEscribir, 'si falta un pedazo no se carga a medias ni se escribe encima');
 
+  // un pedazo huérfano (de una escritura cortada al recargar) se borra en la próxima escritura después de abrir (precargarDatos)
+  await p.evaluate(async () => { for (const c of await TVDB.claves()) await TVDB.del(c); localStorage.clear(); localStorage.setItem(TV_KEY + '__soloIdb', '1');
+    await TVDB.set(TV_KEY, [{ id: 'A', nombre: 'Chico', creado: 1, dibujos: [] }]);
+    await TVDB.set(TV_KEY + '__t', Date.now() + 3e6); await TVDB.set(TV_KEY + '__trozohuerfano_1', [{ id: 'x', t: 'p', x: 0, y: 0 }]); });
+  await p.reload(); await p.waitForSelector('header.tv-header');
+  const r6 = await p.evaluate(async () => { await guardarProyectosIdb(TV_KEY, DATOS.valores[TV_KEY]); return (await TVDB.claves()).filter(c => String(c).includes('__trozo')).length; });
+  ok(r6 === 0, 'un pedazo huérfano se borra en la primera escritura después de abrir (' + r6 + ')');
+
   ok(!errs.length, 'sin errores en la página' + (errs.length ? ': ' + errs.join(' | ') : ''));
   await b.close(); srv.close();
   console.log(fallas ? fallas + ' falla(s).' : 'Todo bien.'); process.exit(fallas ? 1 : 0);

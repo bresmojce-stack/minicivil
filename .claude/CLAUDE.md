@@ -49,10 +49,10 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 
 ## Al publicar (solo cuando Brian lo autorice)
 - Subir `TV_VERSION` en index.html, `CACHE_VERSION` en sw.js (ej. "2" y "minicivil-v2") y la versión del
-  `<title>` (hoy "Mini Civil v56").
+  `<title>` (hoy "Mini Civil v57").
 - `node pruebas/sintaxis.js` (sintaxis de cada `<script>` y versión igual en los dos archivos; corre también en
   GitHub en cada push a `main`, `.github/workflows/sintaxis.yml`).
-- Batería completa: `node pruebas/correr.js` (52 pruebas en PC, celular y tablet, también sin conexión con servidor real; `SOLO=nombre` corre algunas). Rápidas: `node pruebas/abrir.js` y `W=390 node pruebas/abrir.js` (PC y celular); `node pruebas/importar.js` si se tocaron los puntos o el DXF; `node pruebas/nube.js` si se tocó Drive o los datos.
+- Batería completa: `node pruebas/correr.js` (54 pruebas en PC, celular y tablet, también sin conexión con servidor real; `SOLO=nombre` corre algunas). Rápidas: `node pruebas/abrir.js` y `W=390 node pruebas/abrir.js` (PC y celular); `node pruebas/importar.js` si se tocaron los puntos o el DXF; `node pruebas/nube.js` si se tocó Drive o los datos.
 - Commit con `git -c user.email=bresmojce@gmail.com -c user.name=bresmojce-stack commit`, push a `main`.
 
 ## Mapa del código (buscar por el comentario de sección `// ───`)
@@ -74,6 +74,21 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 | PROYECTOS (Mini Civil) | **Espacio en el celular (v26)**: en la pestaña Dibujo no se dibuja `mc-barra-proy`; el botón de volver (`mc-volver`, solo la flecha) y `tv-acciones` (tema, Drive, guardado) van dentro de la fila del dibujo (`mc-barra-dib`), que `App` le pasa a `TabDibujo` en el prop `cabecera`. En las otras pestañas la fila sigue igual. En el Dibujo, nuevo/renombrar/duplicar/borrar/importar/tabla/DXF se fueron al menú `⋯` (`mc-mas`, panel `tv-dib-mas`, botones `mc-mas-*`), y la franja de comando `tv-dib-cmd` flota sobre el lienzo (`position: absolute`, ancho al contenido, `pointer-events: none` salvo en sus botones por la regla del `<style>`; se parte en varias líneas si hay muchos botones). El lienzo pasa de 479 a 601 px en el celular (del 57 % al 71 % de la pantalla). `proyectoNuevo` (`{ id, nombre, creado, dibujos }`), `useLocalProyectos` (guarda en `TV_KEY`, con deshacer), `copiaDeProyectos` (para `FalloApp`), `Logo`, `TarjetaNube`, `PantallaProyectos`, `App` (inicio = lista de proyectos; proyecto = pestañas `nav.tab`: Dibujo, Superficies…; desde la v22, dentro de un proyecto NO se dibuja la barra `tv-header`: el tema, Drive y el estado de guardado van en la fila del proyecto `mc-barra-proy`, y `tv-main` lleva `mc-sin-barra` para el margen de la franja de estado del celular. En el inicio la barra con el logo sigue), `FalloApp`, arranque y aviso de versión nueva |
 
 ## Estado y lo que sigue
+- Versión 57 (2026-10-26, Brian: "por qué cuando dibujo o elimino algo redibuja todo, eso es tiempo que se está mal gastando"; y
+  "Ver todo" sin los objetos sueltos lejanos). (1) **Editar sin rearmar el plano**: `tramosGL(..., lugares)` anota de cada objeto
+  en qué pedazos quedó ([tipo l/f/p/t, clave, desde, cuántos]); al cambiar el dibujo, `conGL` apaga en la tarjeta lo que ya no está
+  (`motor.ocultar`: escribe números de 1e20 m en su pedazo con `bufferSubData`/`writeBuffer`, `PASO_GL`, `lejosGL`) y pinta lo nuevo
+  o lo que volvió con Deshacer en un motor pequeño aparte (`G.mx`, encima del plano). Solo se rearma todo si lo de aparte pasa de
+  `GL_DESDE` o se apagó más de la mitad (o cambia el tema). Estado en `G.lugares`, `G.ocultos`, `G.pend`, `G.nExtra`, `G.inc`;
+  `MC_DIB.gl` dice `aparte`, `ocultos` y `cambios`. Medido con 25 000 objetos (WebGL por software): borrar una línea 95 ms con el
+  clic, sin rearmar; antes se rearmaba el plano entero (~0,5–1 s con el UBE1901). (2) **Ver todo agrupado**: con el dibujo entero y
+  más de 50 objetos, `verTodo` toma los centros (`cajaRejilla`) del 1 % al 99 % en Este y Norte, más media vuelta alrededor, y avisa
+  cuántos objetos sueltos quedaron fuera (`tv-aviso`); encuadrar lo elegido sigue entero. Prueba nueva `pruebas/vertodo.js` (PC y
+  celular; falla con la v56) y dos revisiones en `webgl.js` (borrar y deshacer sin rearmar). En `trozos.js`, un pedazo huérfano se
+  borra en la primera escritura después de abrir (ya lo hacía `precargarDatos`). Medido para decidir lo que sigue: con el UBE1901
+  dibujado la app usa ~373 MB y 277 MB son los objetos (264 000, 4,2 millones de vértices `{x, y}`); solo bajaría cambiando el
+  formato de los vértices (~120 sitios del código; Brian lo aprobó como siguiente, en su propia versión). La lupa por la tarjeta no
+  se hizo: no sería más rápida (hoy copia un pedazo de la pantalla) y solo serviría para pintar en un Worker.
 - Versión 56 (2026-10-25, punto 5 del informe de la PC: la v53 abría con una tarea ~80 ms más larga que la v52): **el motor se
   arma en reposo**. Al segundo de abrir la app se pide WebGPU (`iniciarGPU`) y, con la app quieta (`requestIdleCallback`),
   `armarMotorPre` deja listo un motor en `GPU.pre` (WebGPU con su prueba del cuadrito, o WebGL); `crearMotor()` lo toma si todavía
