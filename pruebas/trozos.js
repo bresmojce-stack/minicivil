@@ -83,6 +83,12 @@ const path = require('path'), http = require('http'), fs = require('fs');
     return { compacto: !!(d && d.get) && o[3].__vf instanceof Float64Array, igual, copia: Array.isArray(c.v) && c.v[2].b === 0.25 && c.v[1].z === 10.5 && !('__vf' in c),
       clon: Array.isArray(sc.v) && sc.v.length === 4 && sc.v[3].z === 0 && sc.v[3].b === -1, area: Math.abs(DIB.areaObj(o[0]) - DIB.areaObj(JSON.parse(localStorage.getItem('__orig'))[0])) < 1e-12 }; });
   ok(r7.compacto && r7.igual && r7.copia && r7.clon && r7.area, 'un dibujo grande de polilíneas abre con los vértices compactos y sale idéntico (' + JSON.stringify(r7) + ')');
+  // v58: al guardar otra vez, los pedazos llevan las listas de números (`__cv`) y al abrir de nuevo sale idéntico
+  await p.evaluate(async () => { TROZOS.porPrimero = new Map(); await guardarProyectosIdb(TV_KEY, DATOS.valores[TV_KEY]); await TVDB.set(TV_KEY + '__t', Date.now() + 5e6); });
+  const pz = await p.evaluate(async () => { const c = (await TVDB.get(TV_KEY))[0].dibujos[0].__trozos[0], t = await TVDB.get(c); return { cv: !!(t[3].__cv && t[3].__cv.f instanceof Float64Array), sinV: !('v' in t[3]) }; });
+  await p.reload(); await p.waitForSelector('header.tv-header');
+  const r8 = await p.evaluate(() => { const o = DATOS.valores[TV_KEY][0].dibujos[0].objs; return { n: o.length, igual: JSON.stringify(o) === localStorage.getItem('__orig'), compacto: o[3].__vf instanceof Float64Array }; });
+  ok(pz.cv && pz.sinV && r8.igual && r8.compacto && r8.n === 25000, 'guardado otra vez: los pedazos van con sus listas de números y abre idéntico (' + JSON.stringify({ ...pz, ...r8 }) + ')');
 
   ok(!errs.length, 'sin errores en la página' + (errs.length ? ': ' + errs.join(' | ') : ''));
   await b.close(); srv.close();

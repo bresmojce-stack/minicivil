@@ -27,15 +27,27 @@ const path = require('path');
   const dos = grupo.concat(grupo.map(o => ({ ...o, id: o.id + 'b', a: { x: o.a.x + 3000, y: o.a.y }, b: { x: o.b.x + 3000, y: o.b.y } })));
   const r3 = await abrir(dos);
   ok(r3.ancho < 0.1 && !r3.avisos.length, 'dos grupos iguales a 3 km: se ven los dos, no deja ninguno fuera');
-  // v58: con presentaciones, pestañas abajo (Modelo | VIAL 1 …) que abren cada dibujo; sin presentaciones no salen
+  // v58: las presentaciones de un plano van en la pestaña Presentación, cada una en su pestaña abajo (como las "Sheets" de
+  // AutoCAD); el Dibujo ve solo el modelo, y "Hojas para PDF" sigue en la misma pestaña
   ok(!(await p.$('.mc-pestanas-dib')), 'sin presentaciones no hay pestañas abajo');
-  await p.evaluate(o => { localStorage.setItem('minicivil', JSON.stringify([{ id: 1, nombre: 'V', creado: '', dibujos: [{ id: 2, nombre: 'Plano', sig: 1, objs: o },
-    { id: 3, nombre: 'VIAL 1 · presentación', sig: 1, objs: [{ id: 'm', t: 'l', a: { x: 0, y: 0 }, b: { x: 0.4, y: 0.3 } }] }] }])); localStorage.setItem('minicivil__t', String(Date.now() + 199999)); }, grupo);
-  await p.reload(); await p.waitForSelector('.tv-dib-svg'); await p.waitForTimeout(300);
+  const lam = n => ({ id: 10 + n, nombre: 'VIAL ' + n + ' · presentación', sig: 1, objs: [{ id: 'm' + n, t: 'l', a: { x: 0, y: 0 }, b: { x: 0.4 * n, y: 0.3 } }] });
+  const conPres = async tab => { await p.evaluate(([o, l, tab]) => { localStorage.setItem('minicivil', JSON.stringify([{ id: 1, nombre: 'V', creado: '', dibujos: [{ id: 2, nombre: 'Plano', sig: 1, objs: o }].concat(l) }]));
+      localStorage.setItem('minicivil__t', String(Date.now() + 199999)); localStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab })); }, [grupo, [lam(1), lam(2)], tab]);
+    await p.reload(); await p.waitForTimeout(500); };
+  await conPres('dibujo'); await p.waitForSelector('.tv-dib-svg');
+  const opDib = await p.$$eval('.mc-barra-dib select option', os => os.map(o => o.textContent));
+  ok(!(await p.$('.mc-pestanas-dib')) && !opDib.some(t => /VIAL/.test(t)), 'en el Dibujo solo el modelo, sin las presentaciones (' + opDib.join(' | ') + ')');
+  await conPres('presentacion'); await p.waitForSelector('.mc-pres-vistas'); await p.waitForSelector('.tv-dib-svg');
+  const vistas = await p.$$eval('.mc-pres-vistas button', bs => bs.map(b => b.textContent));
   const tabs = await p.$$eval('.mc-pestanas-dib button', bs => bs.map(b => b.textContent + (b.getAttribute('aria-selected') === 'true' ? '*' : '')));
-  await p.click('.mc-pestanas-dib button:has-text("VIAL 1")'); await p.waitForTimeout(300);
-  const sel = await p.$eval('.mc-pestanas-dib button[aria-selected=true]', b => b.textContent), elegido = await p.$eval('.mc-barra-dib select, select', s => s.options[s.selectedIndex].textContent);
-  ok(tabs.join('|') === 'Modelo*|VIAL 1' && sel === 'VIAL 1' && /VIAL 1/.test(elegido), 'con presentaciones salen las pestañas y abren cada dibujo (' + tabs.join(' | ') + ' → ' + elegido + ')');
+  await p.click('.mc-pestanas-dib button:has-text("VIAL 2")'); await p.waitForTimeout(300);
+  const sel = await p.$eval('.mc-pestanas-dib button[aria-selected=true]', b => b.textContent);
+  ok(/Presentaciones del plano \(2\)/.test(vistas[0]) && tabs.join('|') === 'VIAL 1*|VIAL 2' && sel === 'VIAL 2', 'en Presentación salen las presentaciones del plano con sus pestañas (' + vistas.join(' / ') + ' · ' + tabs.join(' | ') + ' → ' + sel + ')');
+  await p.click('.mc-pres-vistas .mc-presvista-hojas'); await p.waitForTimeout(300);
+  const hojas = !(await p.$('.mc-pestanas-dib')) && /primera hoja|Hoja/i.test(await p.textContent('main'));
+  await p.click('.mc-pres-vistas .mc-presvista-plano'); await p.waitForTimeout(300);
+  const guardado = await p.evaluate(async () => { await new Promise(r => setTimeout(r, 600)); const v = JSON.parse(localStorage.getItem('minicivil') || '[]'); return v[0] ? v[0].dibujos.map(d => d.nombre).join('|') : ''; });
+  ok(hojas && (await p.$('.mc-pestanas-dib')) && guardado === 'Plano|VIAL 1 · presentación|VIAL 2 · presentación', '"Hojas para PDF" sigue ahí, se vuelve a las presentaciones y no se pierde ningún dibujo (' + guardado + ')');
   ok(!errs.length, 'sin errores' + (errs.length ? ': ' + errs.join(' | ') : ''));
   await b.close(); console.log(fallas ? fallas + ' falla(s).' : 'Todo bien.'); process.exit(fallas ? 1 : 0);
 })();
