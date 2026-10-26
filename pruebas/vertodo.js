@@ -27,6 +27,15 @@ const path = require('path');
   const dos = grupo.concat(grupo.map(o => ({ ...o, id: o.id + 'b', a: { x: o.a.x + 3000, y: o.a.y }, b: { x: o.b.x + 3000, y: o.b.y } })));
   const r3 = await abrir(dos);
   ok(r3.ancho < 0.1 && !r3.avisos.length, 'dos grupos iguales a 3 km: se ven los dos, no deja ninguno fuera');
+  // v58: con presentaciones, pestañas abajo (Modelo | VIAL 1 …) que abren cada dibujo; sin presentaciones no salen
+  ok(!(await p.$('.mc-pestanas-dib')), 'sin presentaciones no hay pestañas abajo');
+  await p.evaluate(o => { localStorage.setItem('minicivil', JSON.stringify([{ id: 1, nombre: 'V', creado: '', dibujos: [{ id: 2, nombre: 'Plano', sig: 1, objs: o },
+    { id: 3, nombre: 'VIAL 1 · presentación', sig: 1, objs: [{ id: 'm', t: 'l', a: { x: 0, y: 0 }, b: { x: 0.4, y: 0.3 } }] }] }])); localStorage.setItem('minicivil__t', String(Date.now() + 199999)); }, grupo);
+  await p.reload(); await p.waitForSelector('.tv-dib-svg'); await p.waitForTimeout(300);
+  const tabs = await p.$$eval('.mc-pestanas-dib button', bs => bs.map(b => b.textContent + (b.getAttribute('aria-selected') === 'true' ? '*' : '')));
+  await p.click('.mc-pestanas-dib button:has-text("VIAL 1")'); await p.waitForTimeout(300);
+  const sel = await p.$eval('.mc-pestanas-dib button[aria-selected=true]', b => b.textContent), elegido = await p.$eval('.mc-barra-dib select, select', s => s.options[s.selectedIndex].textContent);
+  ok(tabs.join('|') === 'Modelo*|VIAL 1' && sel === 'VIAL 1' && /VIAL 1/.test(elegido), 'con presentaciones salen las pestañas y abren cada dibujo (' + tabs.join(' | ') + ' → ' + elegido + ')');
   ok(!errs.length, 'sin errores' + (errs.length ? ': ' + errs.join(' | ') : ''));
   await b.close(); console.log(fallas ? fallas + ' falla(s).' : 'Todo bien.'); process.exit(fallas ? 1 : 0);
 })();

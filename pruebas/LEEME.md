@@ -20,7 +20,7 @@
     node pruebas/nube.js                         # Google Drive simulado con dos equipos (subir, recibir, cambiar, borrar, aparte de TopoVías)
     node pruebas/trozos.js                       # v50: un dibujo grande se guarda por pedazos y se arma igual; la copia automática sin temporales
     node pruebas/webgl.js                        # v50: dibujo de 25 000 objetos con WebGL (por software) = el mismo con el canvas; v57: borrar sin rearmar
-    node pruebas/vertodo.js                      # v57: Ver todo deja fuera los objetos sueltos lejanos (W=390 celular)
+    node pruebas/vertodo.js                      # v57: Ver todo deja fuera los objetos sueltos lejanos; v58: pestañas de presentaciones (W=390 celular)
 
 Usan Playwright con el Chromium de la máquina (`PLAYWRIGHT=/ruta/a/playwright` si está en otro lugar).
 `dibujo.js` debe dar lo mismo que `pruebas/dibujo.js` de TopoVías, menos el alto del lienzo (aquí no hay pestañas

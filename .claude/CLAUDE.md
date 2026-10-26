@@ -49,7 +49,7 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 
 ## Al publicar (solo cuando Brian lo autorice)
 - Subir `TV_VERSION` en index.html, `CACHE_VERSION` en sw.js (ej. "2" y "minicivil-v2") y la versión del
-  `<title>` (hoy "Mini Civil v57").
+  `<title>` (hoy "Mini Civil v58").
 - `node pruebas/sintaxis.js` (sintaxis de cada `<script>` y versión igual en los dos archivos; corre también en
   GitHub en cada push a `main`, `.github/workflows/sintaxis.yml`).
 - Batería completa: `node pruebas/correr.js` (54 pruebas en PC, celular y tablet, también sin conexión con servidor real; `SOLO=nombre` corre algunas). Rápidas: `node pruebas/abrir.js` y `W=390 node pruebas/abrir.js` (PC y celular); `node pruebas/importar.js` si se tocaron los puntos o el DXF; `node pruebas/nube.js` si se tocó Drive o los datos.
@@ -74,6 +74,25 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 | PROYECTOS (Mini Civil) | **Espacio en el celular (v26)**: en la pestaña Dibujo no se dibuja `mc-barra-proy`; el botón de volver (`mc-volver`, solo la flecha) y `tv-acciones` (tema, Drive, guardado) van dentro de la fila del dibujo (`mc-barra-dib`), que `App` le pasa a `TabDibujo` en el prop `cabecera`. En las otras pestañas la fila sigue igual. En el Dibujo, nuevo/renombrar/duplicar/borrar/importar/tabla/DXF se fueron al menú `⋯` (`mc-mas`, panel `tv-dib-mas`, botones `mc-mas-*`), y la franja de comando `tv-dib-cmd` flota sobre el lienzo (`position: absolute`, ancho al contenido, `pointer-events: none` salvo en sus botones por la regla del `<style>`; se parte en varias líneas si hay muchos botones). El lienzo pasa de 479 a 601 px en el celular (del 57 % al 71 % de la pantalla). `proyectoNuevo` (`{ id, nombre, creado, dibujos }`), `useLocalProyectos` (guarda en `TV_KEY`, con deshacer), `copiaDeProyectos` (para `FalloApp`), `Logo`, `TarjetaNube`, `PantallaProyectos`, `App` (inicio = lista de proyectos; proyecto = pestañas `nav.tab`: Dibujo, Superficies…; desde la v22, dentro de un proyecto NO se dibuja la barra `tv-header`: el tema, Drive y el estado de guardado van en la fila del proyecto `mc-barra-proy`, y `tv-main` lleva `mc-sin-barra` para el margen de la franja de estado del celular. En el inicio la barra con el logo sigue), `FalloApp`, arranque y aviso de versión nueva |
 
 ## Estado y lo que sigue
+- Versión 58 (2026-10-26, Brian aprobó bajar la memoria cambiando cómo se guardan los vértices, "sin dañar lo que ya funciona"; y
+  "los dibujos traen presentaciones, aún sigo sin poder verlas"). (1) **Vértices compactos** (sección VÉRTICES COMPACTOS, antes de
+  `juntarTrozos`): en un dibujo de más de `GL_DESDE` objetos, cada polilínea (`pl`, `fh`, `eje` de 4 vértices o más) guarda sus
+  vértices escondidos en `__vf` (Float64Array x, y…), `__vz` y `__vb` (cota y curvatura, NaN si no tiene; no enumerables: no se
+  guardan ni se copian) y `v` es un lector propio y enumerable (`leerVerticesCompactos`) que arma la lista de siempre y la recuerda
+  para los últimos `VERT_MAX` = 4 000 objetos (`VERT_CACHE`). Hacia afuera es igual: `o.v`, `{ ...o }` (queda un objeto normal),
+  `structuredClone` (IndexedDB), `JSON.stringify` (localStorage, Drive) y el DXF ven los mismos vértices y el mismo formato. Si un
+  vértice trae otro dato, el objeto queda como estaba (`compactarObj`). Se compacta al dibujar un DXF/DWG (`dibujarDXF`, también
+  las presentaciones) y al abrir (`precargarDatos`, después de `corregirComas`, que arma objetos nuevos: `compactarProyectos`).
+  Medido con el UBE1901 dibujado: 372 → 247 MB. Comprobado: DXF de 25 000 polilíneas con cotas y curvas idéntico byte por byte,
+  JSON idéntico al guardar y abrir (`trozos.js`). (2) La lista para apagar objetos (v57) en arreglos sencillos (`lugares` = { o,
+  ini, tipo, clave, desde, cnt }, `G.ocultos` Uint8Array, `G.nOcultos`): ocupaba ~36 MB. (3) **Pestañas de presentaciones**
+  abajo del lienzo (`mc-pestanas-dib`): "Modelo | VIAL 1 …" si el proyecto tiene dibujos "… · presentación"; tocar una abre ese
+  dibujo (la PC de Brian confirmó que se traían y se veían, pero quedaban escondidas en la lista de arriba). (4) **Ver todo** ya no
+  corta grupos (la PC vio un grupo cortado en el borde con el UBE1801): solo deja fuera lo que está a más de 10 veces la distancia
+  del 95 % del dibujo a la mediana de los centros (listas Float64Array, rápido). Pruebas: `vertodo.js` (pestañas) y `trozos.js`.
+  Medido en la PC de Brian con la v57 (WebGPU): borrar 14 ms sin rearmar (la v56 rearmaba con una pausa de 311 ms), Ctrl+Z 15 ms,
+  línea nueva 26 ms, copia del equipo 5,0 → 2,0 s. Pendiente: textos "anotativos" de AutoCAD en las ventanas de una presentación
+  (ZV-02 del UBE1801: salen enormes; hay que comparar con AutoCAD).
 - Versión 57 (2026-10-26, Brian: "por qué cuando dibujo o elimino algo redibuja todo, eso es tiempo que se está mal gastando"; y
   "Ver todo" sin los objetos sueltos lejanos). (1) **Editar sin rearmar el plano**: `tramosGL(..., lugares)` anota de cada objeto
   en qué pedazos quedó ([tipo l/f/p/t, clave, desde, cuántos]); al cambiar el dibujo, `conGL` apaga en la tarjeta lo que ya no está

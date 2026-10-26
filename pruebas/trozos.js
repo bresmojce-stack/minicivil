@@ -70,6 +70,20 @@ const path = require('path'), http = require('http'), fs = require('fs');
   const r6 = await p.evaluate(async () => { await guardarProyectosIdb(TV_KEY, DATOS.valores[TV_KEY]); return (await TVDB.claves()).filter(c => String(c).includes('__trozo')).length; });
   ok(r6 === 0, 'un pedazo huérfano se borra en la primera escritura después de abrir (' + r6 + ')');
 
+  // v58: las polilíneas de un dibujo grande abren con los vértices compactos: por fuera, idénticas (JSON byte por byte, copia
+  // con { ... }, structuredClone) y por dentro en una lista de números
+  await p.evaluate(async () => { for (const c of await TVDB.claves()) await TVDB.del(c); localStorage.clear(); localStorage.setItem(TV_KEY + '__soloIdb', '1');
+    const objs = []; for (let i = 0; i < 25000; i++) objs.push({ id: 'p' + i, t: 'pl', v: [{ x: i + 0.1, y: 0.2 }, { x: i + 1.3, y: 2.4, z: 10.5 }, { x: i + 2.5, y: 0.6, b: 0.25 }, { x: i + 3.7, y: 1.8, z: 0, b: -1 }], c: i % 2 === 0, col: '#2563EB' });
+    window.__orig = JSON.stringify(objs);
+    await guardarProyectosIdb(TV_KEY, [{ id: 'P', nombre: 'Polis', creado: 1, dibujos: [{ id: 'D', nombre: 'd', objs }] }]); await TVDB.set(TV_KEY + '__t', Date.now() + 4e6);
+    localStorage.setItem('__orig', window.__orig); });
+  await p.reload(); await p.waitForSelector('header.tv-header');
+  const r7 = await p.evaluate(() => { const o = DATOS.valores[TV_KEY][0].dibujos[0].objs, d = Object.getOwnPropertyDescriptor(o[3], 'v');
+    const igual = JSON.stringify(o) === localStorage.getItem('__orig'), c = { ...o[3], col: '#000' }, sc = structuredClone(o[5]);
+    return { compacto: !!(d && d.get) && o[3].__vf instanceof Float64Array, igual, copia: Array.isArray(c.v) && c.v[2].b === 0.25 && c.v[1].z === 10.5 && !('__vf' in c),
+      clon: Array.isArray(sc.v) && sc.v.length === 4 && sc.v[3].z === 0 && sc.v[3].b === -1, area: Math.abs(DIB.areaObj(o[0]) - DIB.areaObj(JSON.parse(localStorage.getItem('__orig'))[0])) < 1e-12 }; });
+  ok(r7.compacto && r7.igual && r7.copia && r7.clon && r7.area, 'un dibujo grande de polilíneas abre con los vértices compactos y sale idéntico (' + JSON.stringify(r7) + ')');
+
   ok(!errs.length, 'sin errores en la página' + (errs.length ? ': ' + errs.join(' | ') : ''));
   await b.close(); srv.close();
   console.log(fallas ? fallas + ' falla(s).' : 'Todo bien.'); process.exit(fallas ? 1 : 0);
