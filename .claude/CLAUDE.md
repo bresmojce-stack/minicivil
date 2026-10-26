@@ -1,5 +1,7 @@
 # Mini Civil — guía para trabajar en el código
 
+**Primero leer `MANUAL.md` (reglas de Brian para todas las apps, 2026-10-26): manda sobre esta guía si chocan.**
+
 Mini Civil 3D de obra para Brian Escobar, topógrafo (Colombia), y sus compañeros: lo que de verdad se usa en
 obra, en PC, tablet, iPhone y Android. Un solo archivo: `index.html` (React 18 sin JSX, `React.createElement`).
 PWA publicada en GitHub Pages (https://bresmojce-stack.github.io/minicivil/) al hacer push a `main`.
