@@ -179,6 +179,31 @@ const DXF = ['0','SECTION','2','HEADER','9','$ACADVER','1','AC1015','0','ENDSEC'
   ok(pres.recorte && pres.recorte.every((q, i) => casi(q[0], [30, 70][i], 1e-9) && casi(q[1], 50, 1e-9)),
     'en la ventana, la línea del modelo queda a escala 2 y recortada al marco: de (30, 50) a (70, 50): ' + JSON.stringify(pres.recorte));
 
+  // ── v59: la hoja de la presentación (límites del LAYOUT) y los puntos en la hoja: un POINT suelto va sin textos (en AutoCAD no
+  // lleva), uno de un bloque con atributos conserva su número y su cota ──
+  const hoja = await p.evaluate(() => {
+    const t = ['0', 'SECTION', '2', 'TABLES', '0', 'BLOCK_RECORD', '5', 'A1', '2', '*Paper_Space', '0', 'ENDSEC',
+      '0', 'SECTION', '2', 'BLOCKS', '0', 'BLOCK', '2', '*Paper_Space', '10', '0', '20', '0', '0', 'ENDBLK', '0', 'ENDSEC',
+      '0', 'SECTION', '2', 'ENTITIES',
+      '0', 'POINT', '8', 'P PUNTOS COORDENADAS ZV', '10', '48', '20', '1', '30', '5',
+      '0', 'INSERT', '8', 'P PUNTOS COORDENADAS ZV', '2', 'PTO', '66', '1', '10', '52', '20', '1',
+      '0', 'ATTRIB', '8', '0', '10', '52', '20', '1', '1', '91', '2', 'PUNTO', '0', 'ATTRIB', '8', '0', '10', '52', '20', '1', '1', '956.640', '2', 'COTA', '0', 'SEQEND',
+      '0', 'LINE', '8', '0', '67', '1', '10', '0', '20', '0', '11', '297', '21', '0',
+      '0', 'VIEWPORT', '8', '0', '67', '1', '10', '148', '20', '105', '40', '297', '41', '210', '68', '1', '69', '1', '12', '148', '22', '105', '45', '210',
+      '0', 'VIEWPORT', '8', '0', '67', '1', '10', '50', '20', '50', '40', '40', '41', '20', '68', '2', '69', '2', '12', '50', '22', '0', '16', '0', '26', '0', '36', '1', '45', '10',
+      '0', 'ENDSEC', '0', 'SECTION', '2', 'OBJECTS', '0', 'LAYOUT', '330', '1A', '1', 'Lámina 1', '10', '-5', '20', '-7', '11', '292', '21', '203', '71', '1', '330', 'A1', '0', 'ENDSEC', '0', 'EOF'].join('\n');
+    const r = leerDXF(t, 1), L = r.presentaciones[0], pts = L ? L.objs.filter(o => o.t === 'p') : [];
+    const suelto = pts.find(o => o.nom !== '91'), atrib = pts.find(o => o.nom === '91');
+    const dib = { nombre: 'Lámina 1 · presentación', pres: true, objs: [] };
+    return { hoja: L && L.hoja, n: pts.length, suelto: suelto && { nom: suelto.nom, z: suelto.z, d: suelto.d }, atrib: atrib && { z: atrib.z, x: atrib.x, y: atrib.y },
+      modeloD: (r.objs.find(o => o.t === 'p' && o.nom !== '91') || {}).d, etq: etqDe(dib) };
+  });
+  ok(hoja.hoja && hoja.hoja.x0 === -5 && hoja.hoja.y0 === -7 && hoja.hoja.x1 === 292 && hoja.hoja.y1 === 203, 'la presentación trae su hoja (límites del LAYOUT): ' + JSON.stringify(hoja.hoja));
+  ok(hoja.n === 2 && hoja.suelto && hoja.suelto.nom === undefined && hoja.suelto.z === undefined && hoja.suelto.d === undefined && hoja.modeloD === 'P PUNTOS COORDENADAS ZV',
+    'en la hoja el POINT suelto va sin número, cota ni capa (en el modelo sigue con su capa): ' + JSON.stringify(hoja.suelto));
+  ok(hoja.atrib && hoja.atrib.z === 956.64 && casi(hoja.atrib.x, 54, 1e-9) && casi(hoja.atrib.y, 52, 1e-9) && hoja.etq.num && hoja.etq.z && !hoja.etq.d,
+    'el punto de un bloque con atributos llega a la hoja con su número 91 y su cota 956.640, y la hoja muestra número y cota: ' + JSON.stringify(hoja));
+
   // ── v47: los 256 colores de AutoCAD entran con su color exacto y vuelven con su número ──
   const aci = await p.evaluate(() => {
     const lin = c => ['0', 'LINE', '8', '0', '62', String(c), '10', '0', '20', '0', '11', '10', '21', '0'];

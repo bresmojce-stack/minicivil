@@ -49,7 +49,7 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 
 ## Al publicar (solo cuando Brian lo autorice)
 - Subir `TV_VERSION` en index.html, `CACHE_VERSION` en sw.js (ej. "2" y "minicivil-v2") y la versión del
-  `<title>` (hoy "Mini Civil v59").
+  `<title>` (hoy "Mini Civil v60").
 - `node pruebas/sintaxis.js` (sintaxis de cada `<script>` y versión igual en los dos archivos; corre también en
   GitHub en cada push a `main`, `.github/workflows/sintaxis.yml`).
 - Batería completa: `node pruebas/correr.js` (54 pruebas en PC, celular y tablet, también sin conexión con servidor real; `SOLO=nombre` corre algunas). Rápidas: `node pruebas/abrir.js` y `W=390 node pruebas/abrir.js` (PC y celular); `node pruebas/importar.js` si se tocaron los puntos o el DXF; `node pruebas/nube.js` si se tocó Drive o los datos.
@@ -74,6 +74,14 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 | PROYECTOS (Mini Civil) | **Espacio en el celular (v26)**: en la pestaña Dibujo no se dibuja `mc-barra-proy`; el botón de volver (`mc-volver`, solo la flecha) y `tv-acciones` (tema, Drive, guardado) van dentro de la fila del dibujo (`mc-barra-dib`), que `App` le pasa a `TabDibujo` en el prop `cabecera`. En las otras pestañas la fila sigue igual. En el Dibujo, nuevo/renombrar/duplicar/borrar/importar/tabla/DXF se fueron al menú `⋯` (`mc-mas`, panel `tv-dib-mas`, botones `mc-mas-*`), y la franja de comando `tv-dib-cmd` flota sobre el lienzo (`position: absolute`, ancho al contenido, `pointer-events: none` salvo en sus botones por la regla del `<style>`; se parte en varias líneas si hay muchos botones). El lienzo pasa de 479 a 601 px en el celular (del 57 % al 71 % de la pantalla). `proyectoNuevo` (`{ id, nombre, creado, dibujos }`), `useLocalProyectos` (guarda en `TV_KEY`, con deshacer), `copiaDeProyectos` (para `FalloApp`), `Logo`, `TarjetaNube`, `PantallaProyectos`, `App` (inicio = lista de proyectos; proyecto = pestañas `nav.tab`: Dibujo, Superficies…; desde la v22, dentro de un proyecto NO se dibuja la barra `tv-header`: el tema, Drive y el estado de guardado van en la fila del proyecto `mc-barra-proy`, y `tv-main` lleva `mc-sin-barra` para el margen de la franja de estado del celular. En el inicio la barra con el logo sigue), `FalloApp`, arranque y aviso de versión nueva |
 
 ## Estado y lo que sigue
+- Versión 60 (2026-10-26, medición de la PC sobre la v59: "los números y cotas de los puntos que vienen de bloques con atributos
+  ya no salen en las hojas"). En `leerDXFPasos`, `deAtributos` (WeakSet) marca los puntos que salen de un INSERT con ATTRIB (también
+  su copia pasada al papel en cada ventana); al cerrar cada presentación, un POINT suelto queda sin `nom`, `z` ni `d` (en AutoCAD no
+  lleva texto) y los de atributos conservan los suyos. `etqDe` en una presentación: número y cota sí, descripción no. La copia del
+  equipo de los planos lleva `LECTOR_V` (= 2) en su clave, así lo leído por la v59 no se usa. Las presentaciones guardadas con la
+  v59 hay que abrirlas de nuevo desde el DWG. Prueba en `leerdxf.js` (hoja del LAYOUT, POINT suelto sin textos, punto 91 con cota
+  956.640 a escala 2 en la hoja). Medido en la PC con la v59 (UBE1801): pico al Dibujar 1 152 → 494 MB, tarea más larga 555 → 326 ms,
+  después de borrar 601 → 354 ms (queda ~1/3 s).
 - Versión 59 (2026-10-26, Brian: "las presentaciones deberían estar en el apartado de presentaciones… que se vean como las de
   AutoCAD, con sus rótulos"; "lo que aparece gris es porque está fuera del dibujo"; "cada dibujo trae su configuración de cada hoja").
   (1) **Presentaciones en la pestaña Presentación** (`esPresentacion`: marca `pres: true` o el nombre "… · presentación"). El
