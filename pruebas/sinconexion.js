@@ -27,6 +27,10 @@ const path = require('path'), http = require('http'), fs = require('fs');
   await p.reload(); await p.waitForSelector('.tv-main', { timeout: 15000 }); await p.waitForTimeout(500);   // dentro de un proyecto ya no hay barra de arriba (v22)
   ok((await p.textContent('body')).includes('Sin señal'), 'sin internet la app abre con sus datos');
   ok(await p.evaluate(() => typeof Delaunator === 'function' && typeof THREE === 'object' && !!window.jspdf && typeof Constrainautor === 'function'), 'sin internet están las cuatro librerías (triangulación, quiebres, 3D y PDF)');
+  // v62: visitar otra página de la misma dirección no reemplaza la app guardada
+  await ctx.setOffline(false); await p.goto(url + 'privacidad.html'); await p.waitForTimeout(800);
+  await ctx.setOffline(true); await p.goto(url); await p.waitForSelector('.tv-main', { timeout: 15000 }); await p.waitForTimeout(300);
+  ok(!/privacidad/i.test(await p.title()) && (await p.textContent('body')).includes('Sin señal'), 'sin internet, después de ver la privacidad, abre la app (' + (await p.title()) + ')');
   ok(!errs.length, 'sin errores' + (errs.length ? ': ' + errs.join(' | ') : ''));
   await b.close(); srv.close();
   console.log(fallas ? fallas + ' falla(s).' : 'Todo bien (sin conexión).');

@@ -16,8 +16,10 @@ function responder(route, status, body) {
 async function manejarDrive(route) {
   const req = route.request(), url = new URL(req.url()), m = req.method();
   if (m === 'OPTIONS') return responder(route, 204);
-  if (!/Bearer tok/.test(req.headers()['authorization'] || '')) return responder(route, 401, { error: 'no' });
   const ruta = url.pathname;
+  let mm = ruta.match(/^\/sesion\/(\w+)$/);   // la dirección de la sesión no lleva la autorización
+  if (mm) { const f = drive.files[mm[1]]; f.data = req.postData(); f.t = Date.now(); return responder(route, 200, { id: f.id, modifiedTime: new Date(f.t).toISOString() }); }
+  if (!/Bearer tok/.test(req.headers()['authorization'] || '')) return responder(route, 401, { error: 'no' });
   if (ruta === '/drive/v3/about') return responder(route, 200, { user: { emailAddress: 'prueba@gmail.com' } });
   const pub = f => ({ id: f.id, name: f.name, modifiedTime: new Date(f.t).toISOString(), appProperties: f.appProperties, trashed: f.trashed, parents: f.parent ? [f.parent] : [] });
   if (ruta === '/drive/v3/files' && m === 'GET') {
@@ -31,12 +33,19 @@ async function manejarDrive(route) {
     const b = JSON.parse(req.postData()); const id = nuevoId();
     drive.files[id] = { id, name: b.name, folder: true, t: Date.now() }; return responder(route, 200, { id });
   }
-  let mm = ruta.match(/^\/drive\/v3\/files\/(\w+)$/);
+  mm = ruta.match(/^\/drive\/v3\/files\/(\w+)$/);
   if (mm) {
     const f = drive.files[mm[1]]; if (!f) return responder(route, 404, {});
     if (m === 'GET' && url.searchParams.get('alt') === 'media') return route.fulfill({ status: 200, headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' }, body: f.data });
     if (m === 'GET') return responder(route, 200, pub(f));
     if (m === 'PATCH') { Object.assign(f, JSON.parse(req.postData())); f.t = Date.now(); return responder(route, 200, pub(f)); }
+  }
+  mm = ruta.match(/^\/upload\/drive\/v3\/files(?:\/(\w+))?$/);
+  if (mm && url.searchParams.get('uploadType') === 'resumable') {
+    const meta = JSON.parse(req.postData()); let f = mm[1] ? drive.files[mm[1]] : null;
+    if (!f) { const id = nuevoId(); f = drive.files[id] = { id, parent: meta.parents[0] }; }
+    Object.assign(f, { name: meta.name, appProperties: meta.appProperties }); drive.sesiones = (drive.sesiones || 0) + 1;
+    return route.fulfill({ status: 200, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Expose-Headers': 'Location', Location: 'https://www.googleapis.com/sesion/' + f.id }, body: '' });
   }
   mm = ruta.match(/^\/upload\/drive\/v3\/files(?:\/(\w+))?$/);
   if (mm) {
@@ -55,12 +64,13 @@ const proy = (id, nombre, n) => ({ id, nombre, creado: '', dibujos: [{ id: id * 
 (async () => {
   const b = await chromium.launch();
   const errs = [];
+  let aceptar = true;
   let fallas = 0; const ok = (bien, txt) => { console.log((bien ? 'bien  ' : 'FALLA ') + txt); if (!bien) fallas++; };
   async function equipo(nombre, proyectos, W) {
     const ctx = await b.newContext({ viewport: { width: W || 1280, height: 900 }, isMobile: (W || 1280) < 600, hasTouch: true });
     await ctx.route('https://www.googleapis.com/**', manejarDrive);
     await ctx.route('https://accounts.google.com/gsi/client', r => r.fulfill({ status: 200, contentType: 'text/javascript', body: GIS }));
-    const p = await ctx.newPage(); p.on('pageerror', e => errs.push(nombre + ': ' + e.message)); p.on('dialog', d => d.accept());
+    const p = await ctx.newPage(); p.on('pageerror', e => errs.push(nombre + ': ' + e.message)); p.on('dialog', d => aceptar ? d.accept() : d.dismiss());
     await p.goto('file://' + archivo); await p.waitForSelector('header.tv-header');
     await p.evaluate(v => { localStorage.clear(); localStorage.setItem('minicivil', JSON.stringify(v)); localStorage.setItem('minicivil__t', String(Date.now())); indexedDB.deleteDatabase('minicivil'); }, proyectos);
     await p.reload(); await p.waitForSelector('header.tv-header'); await p.waitForTimeout(400);
@@ -102,6 +112,42 @@ const proy = (id, nombre, n) => ({ id, nombre, creado: '', dibujos: [{ id: id * 
   const antes = enMiniCivil();
   await A.click('button.tv-nube'); await A.click('.tv-panel-nube button:has-text("Desconectar")'); await A.waitForTimeout(200);
   ok(enMiniCivil() === antes && (await estado(A)).proyectos.length === 2, '6. desconectar no borra nada (ni en Drive ni en el equipo)');
+  // v62 ── 7. dos equipos cambian el mismo proyecto: gana el más reciente y la otra versión queda como proyecto aparte
+  const C = await equipo('C', []); await conectar(C); await C.waitForTimeout(1500); await espera(C);   // la sincronización de al abrir (800 ms) ya pasó
+  const cambiar = (q, nombre, n) => q.evaluate(([nombre, n]) => { const l = HIST.actual.proyectos, x = l.map(v => v.nombre.startsWith('Nuevo en B') ? { ...v, nombre, dibujos: [{ ...v.dibujos[0], sig: n }] } : v); anotarHoras(l, x); HIST.crudo.proyectos(x); vaciarGuardado(); }, [nombre, n]);
+  await cambiar(B, 'Nuevo en B (de B)', 50); await B.evaluate(() => nubeSincronizar(true)); await espera(B);
+  await C.waitForTimeout(50); await cambiar(C, 'Nuevo en B (de C)', 60); await C.evaluate(() => nubeSincronizar(true)); await espera(C);
+  e = await estado(C);
+  ok(e.proyectos.some(x => x.startsWith('Nuevo en B (de C)[')) && e.proyectos.some(x => x.startsWith('Nuevo en B (de B) (versión de Drive')), '7. gana lo más reciente y la otra versión queda aparte: ' + JSON.stringify(e.proyectos) + ' · ' + e.msg);
+  ok(/proyecto aparte/.test(e.msg), '   el aviso lo dice');
+  // 8. al revés: el proyecto se cambió aquí antes que en el otro equipo; abrirlo u otro proyecto no cuenta, y lo de aquí queda aparte
+  await B.evaluate(() => nubeSincronizar(true)); await espera(B);
+  await C.evaluate(() => nubeSincronizar(true)); await espera(C);
+  await cambiar(B, 'Nuevo en B (2 de B)', 70);
+  await C.evaluate(() => { const l = HIST.actual.proyectos, x = l.map(v => v.nombre === 'Nuevo en B (de C)' ? { ...v, nombre: 'Nuevo en B (2 de C)' } : v); anotarHoras(l, x); HORAS[x.find(v => v.nombre === 'Nuevo en B (2 de C)').id] = 1000; localStorage.setItem(HORAS_KEY, JSON.stringify(HORAS)); HIST.crudo.proyectos(x); vaciarGuardado(); });
+  await B.evaluate(() => nubeSincronizar(true)); await espera(B);
+  await C.evaluate(() => nubeSincronizar(true)); await espera(C);
+  e = await estado(C);
+  ok(e.proyectos.some(x => x.startsWith('Nuevo en B (2 de B)[')) && e.proyectos.some(x => x.startsWith('Nuevo en B (2 de C) (versión de este equipo')), '8. con la hora de ESE proyecto gana el otro equipo y lo de aquí queda aparte: ' + JSON.stringify(e.proyectos));
+  // 9. mandar el archivo a la papelera de Drive: pregunta; con Cancelar el proyecto se queda y se vuelve a subir
+  await C.evaluate(() => nubeSincronizar(true)); await espera(C);
+  const fL = Object.values(drive.files).find(f => f.name === 'Proyecto - Lote 4 (B).json' && !f.trashed); fL.trashed = true;
+  aceptar = false; await C.evaluate(() => nubeSincronizar(true)); await espera(C); aceptar = true;
+  e = await estado(C);
+  ok(e.proyectos.includes('Lote 4 (B)[3]') && enMiniCivil().includes('Proyecto - Lote 4 (B).json'), '9. papelera de Drive + Cancelar: el proyecto se conserva y vuelve a subirse');
+  const fL2 = Object.values(drive.files).find(f => f.name === 'Proyecto - Lote 4 (B).json' && !f.trashed); fL2.trashed = true;
+  await C.evaluate(() => nubeSincronizar(true)); await espera(C);
+  e = await estado(C);
+  ok(!e.proyectos.includes('Lote 4 (B)[3]'), '   papelera de Drive + Aceptar: se borra también del equipo');
+  // 10. un proyecto de más de 5 MB sube por sesión; uno de más de 50 000 objetos no se sube y se dice
+  await C.evaluate(p => { const l = HIST.actual.proyectos, x = l.concat([p]); HIST.crudo.proyectos(x); vaciarGuardado(); }, { id: 91, nombre: 'Mediano', creado: '', dibujos: [{ id: 910, nombre: 'D', sig: 1, objs: Array.from({ length: 45000 }, (_, i) => ({ id: i, t: 'p', x: i, y: i, nom: 'P' + i, d: 'x'.repeat(100) })) }] });
+  await C.evaluate(() => nubeSincronizar(true)); await espera(C);
+  const fM = Object.values(drive.files).find(f => f.name === 'Proyecto - Mediano.json');
+  ok(drive.sesiones === 1 && fM && fM.data.length > 4000000 && JSON.parse(fM.data).dibujos[0].objs.length === 45000, '10. el proyecto mediano (' + Math.round(((fM && fM.data) || '').length / 1048576) + ' MB) sube por sesión y entero');
+  await C.evaluate(p => { const o = Array.from({ length: 50001 }, (_, i) => ({ id: i, t: 'p', x: i, y: i })); HIST.crudo.proyectos(HIST.actual.proyectos.concat([{ ...p, dibujos: [{ id: 920, nombre: 'D', sig: 1, objs: o }] }])); vaciarGuardado(); }, { id: 92, nombre: 'Enorme', creado: '' });
+  await C.evaluate(() => nubeSincronizar(true)); await espera(C);
+  e = await estado(C);
+  ok(!enMiniCivil().includes('Enorme') && /muy grande/.test(e.msg), '    el de más de 50 000 objetos no se sube y se avisa: ' + e.msg);
   ok(!errs.length, 'sin errores en la consola' + (errs.length ? ': ' + errs.join(' | ') : ''));
   await b.close();
   console.log(fallas ? fallas + ' falla(s).' : 'Todo bien (Drive simulado).');

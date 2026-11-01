@@ -51,10 +51,10 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 
 ## Al publicar (solo cuando Brian lo autorice)
 - Subir `TV_VERSION` en index.html, `CACHE_VERSION` en sw.js (ej. "2" y "minicivil-v2") y la versión del
-  `<title>` (hoy "Mini Civil v61").
+  `<title>` (hoy "Mini Civil v62").
 - `node pruebas/sintaxis.js` (sintaxis de cada `<script>` y versión igual en los dos archivos; corre también en
   GitHub en cada push a `main`, `.github/workflows/sintaxis.yml`).
-- Batería completa: `node pruebas/correr.js` (54 pruebas en PC, celular y tablet, también sin conexión con servidor real; `SOLO=nombre` corre algunas). Rápidas: `node pruebas/abrir.js` y `W=390 node pruebas/abrir.js` (PC y celular); `node pruebas/importar.js` si se tocaron los puntos o el DXF; `node pruebas/nube.js` si se tocó Drive o los datos.
+- Batería completa: `node pruebas/correr.js` (55 pruebas en PC, celular y tablet, también sin conexión con servidor real; `SOLO=nombre` corre algunas). Rápidas: `node pruebas/abrir.js` y `W=390 node pruebas/abrir.js` (PC y celular); `node pruebas/importar.js` si se tocaron los puntos o el DXF; `node pruebas/nube.js` si se tocó Drive o los datos.
 - Commit con `git -c user.email=bresmojce@gmail.com -c user.name=bresmojce-stack commit`, push a `main`.
 
 ## Mapa del código (buscar por el comentario de sección `// ───`)
@@ -76,6 +76,27 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 | PROYECTOS (Mini Civil) | **Espacio en el celular (v26)**: en la pestaña Dibujo no se dibuja `mc-barra-proy`; el botón de volver (`mc-volver`, solo la flecha) y `tv-acciones` (tema, Drive, guardado) van dentro de la fila del dibujo (`mc-barra-dib`), que `App` le pasa a `TabDibujo` en el prop `cabecera`. En las otras pestañas la fila sigue igual. En el Dibujo, nuevo/renombrar/duplicar/borrar/importar/tabla/DXF se fueron al menú `⋯` (`mc-mas`, panel `tv-dib-mas`, botones `mc-mas-*`), y la franja de comando `tv-dib-cmd` flota sobre el lienzo (`position: absolute`, ancho al contenido, `pointer-events: none` salvo en sus botones por la regla del `<style>`; se parte en varias líneas si hay muchos botones). El lienzo pasa de 479 a 601 px en el celular (del 57 % al 71 % de la pantalla). `proyectoNuevo` (`{ id, nombre, creado, dibujos }`), `useLocalProyectos` (guarda en `TV_KEY`, con deshacer), `copiaDeProyectos` (para `FalloApp`), `Logo`, `TarjetaNube`, `PantallaProyectos`, `App` (inicio = lista de proyectos; proyecto = pestañas `nav.tab`: Dibujo, Superficies…; desde la v22, dentro de un proyecto NO se dibuja la barra `tv-header`: el tema, Drive y el estado de guardado van en la fila del proyecto `mc-barra-proy`, y `tv-main` lleva `mc-sin-barra` para el margen de la franja de estado del celular. En el inicio la barra con el logo sigue), `FalloApp`, arranque y aviso de versión nueva |
 
 ## Estado y lo que sigue
+- Versión 62 (2026-11-01, Brian: "arregla todo para v62", los 11 hallazgos de la primera inspección externa, sobre la v61; primera
+  publicación desde la PC, que ahora edita y publica). (1) **Deshacer de un plano sin abrir**: `siguienteTrozado` no borra los
+  pedazos que sigan en el historial (`trozosEnHistorial`). (2) **Abrir no cuenta como cambio**: `__trozos`/`__n` van en el sitio de
+  `objs` y `armarProyecto` lo devuelve ahí, y cada proyecto tiene su hora (`anotarHoras`, `horaProyecto`, localStorage
+  `minicivil_horas`; sin hora propia, `DATOS.tCarga`). Armar o traer de Drive pasan por `HIST.crudo.proyectos` y no la cambian.
+  Los planos guardados antes de la v62 quedan con `objs` al final: pueden verse como cambiados en Drive, pero sin pérdida. (3)
+  **Conflicto**: la versión que pierde queda como proyecto aparte (`otraVersion`, como la copia en conflicto de Dropbox) y
+  `TarjetaCopias` muestra las copias automáticas en el inicio. (4) **Papelera de Drive**: `confirm` antes de borrar del equipo;
+  Cancelar lo vuelve a subir. (5) **Copias**: `restaurarCopia`/`proyectosDeCopia` conservan el plano `sinCopia` que hay en el equipo y
+  la copia de rescate de `FalloApp` arma los planos. (6) `sw.js`: `esApp`, solo la app usa la clave `./index.html`. (7) **DXF**:
+  `cotasSeguidas` reparte por distancia las cotas que faltan y `crearDXF.rellenas` las cuenta para el aviso (un vértice sin cota al
+  lado de cota 0 también cuenta, aunque el archivo no cambie). (8) **Comas**: `TEXTO_LIBRE` en `corregirComas`, y al escribir solo
+  en casillas `inputmode` decimal/numeric, `type=number` o `data-numero`. (9) **Drive**: huella una vez por proyecto (`HUELLAS`,
+  WeakMap), subida por sesión desde `NUBE_SIMPLE` = 4 MB (si Google no da `Location`, va como antes; solo probada en el Drive
+  simulado) y más de `NUBE_MAX_OBJS` = 50 000 objetos no sube (`nubeMuyGrande`, con aviso). (10) `objCompacto` junta los 3 armados
+  de vértices compactos; se borró `juntarTrozos`. (11) Prueba nueva `pruebas/v62.js`, y más casos en `nube.js` y `sinconexion.js`.
+  Comparado en la PC con el UBE1801 y la tarjeta gráfica (v61 / v62, 2 corridas): abrir la app 0,24 s / 0,24 s, abrir el proyecto
+  1,5 / 1,6 s, memoria pico 447–478 / 446–477 MB, lo guardado idéntico y DXF igual en las dos; pausa al borrar 293–301 / 300–560 ms
+  (sigue pendiente). En esta PC no está el Chromium de Playwright: `PLAYWRIGHT` debe apuntar a un envoltorio que le ponga
+  `channel: 'chrome'` a `chromium.launch`. En Chrome con ventana y `localhost`, esperar `navigator.serviceWorker.ready` se colgó y
+  la pestaña cayó (también con la v61, solo en el guion de medición); sin esa espera, sin fallas.
 - Versión 61 (2026-11-01, Brian: "si salgo, que vaya a la página principal; está demorando mucho para poder ingresar"; publicada
   sin batería completa por pedido suyo). (1) **Arranca en el inicio**: `nav` se guarda en `sessionStorage` (`minicivil_nav`), que
   se borra al cerrar la app: una recarga vuelve al mismo sitio, salir y entrar no. Las pruebas ponen `sessionStorage` (antes

@@ -1,6 +1,6 @@
 // Mini Civil: funciona sin internet.
 // Al publicar una versión nueva, cambiar CACHE_VERSION (y TV_VERSION en index.html).
-const CACHE_VERSION = "minicivil-v61";
+const CACHE_VERSION = "minicivil-v62";
 // v44: cada archivo del lector se agrega solo si falta (los equipos con la v43 no vuelven a bajar los 11 MB del wasm).
 // v43: el lector de DWG (LibreDWG, ~11 MB) va en su propio espacio: se baja una sola vez al instalar y no se vuelve a bajar
 // en cada versión de la app; solo si cambia CACHE_LIB (al cambiar de versión de la librería)
@@ -30,8 +30,11 @@ self.addEventListener("fetch", e => {
   const navegar = e.request.mode === "navigate" || /manifest\.json$/.test(new URL(e.request.url).pathname);
   const deLib = /\/lib\/libredwg\/(dist|wasm)\//.test(new URL(e.request.url).pathname);
   e.respondWith(caches.open(deLib ? CACHE_LIB : CACHE_VERSION).then(async cache => {
-    const clave = e.request.mode === "navigate" ? "./index.html" : e.request;
-    const guardado = await cache.match(clave, { ignoreSearch: e.request.mode === "navigate" });
+    // v62: solo la app misma va con la clave de la app: otra página (privacidad.html) la reemplazaba y sin red se abría esa
+    const ruta = new URL(e.request.url).pathname, base = new URL("./", self.location).pathname;
+    const esApp = e.request.mode === "navigate" && (ruta === base || ruta === base + "index.html");
+    const clave = esApp ? "./index.html" : e.request;
+    const guardado = await cache.match(clave, { ignoreSearch: esApp });
     const red = fetch(e.request, navegar ? { cache: "no-cache" } : undefined).then(r => {
       if (r && r.ok) cache.put(clave, r.clone());
       return r;
