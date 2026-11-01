@@ -201,8 +201,39 @@ const DXF = ['0','SECTION','2','HEADER','9','$ACADVER','1','AC1015','0','ENDSEC'
   ok(hoja.hoja && hoja.hoja.x0 === -5 && hoja.hoja.y0 === -7 && hoja.hoja.x1 === 292 && hoja.hoja.y1 === 203, 'la presentación trae su hoja (límites del LAYOUT): ' + JSON.stringify(hoja.hoja));
   ok(hoja.n === 2 && hoja.suelto && hoja.suelto.nom === undefined && hoja.suelto.z === undefined && hoja.suelto.d === undefined && hoja.modeloD === 'P PUNTOS COORDENADAS ZV',
     'en la hoja el POINT suelto va sin número, cota ni capa (en el modelo sigue con su capa): ' + JSON.stringify(hoja.suelto));
-  ok(hoja.atrib && hoja.atrib.z === 956.64 && casi(hoja.atrib.x, 54, 1e-9) && casi(hoja.atrib.y, 52, 1e-9) && hoja.etq.num && hoja.etq.z && !hoja.etq.d,
-    'el punto de un bloque con atributos llega a la hoja con su número 91 y su cota 956.640, y la hoja muestra número y cota: ' + JSON.stringify(hoja));
+  ok(hoja.atrib && hoja.atrib.z === 956.64 && casi(hoja.atrib.x, 54, 1e-9) && casi(hoja.atrib.y, 52, 1e-9) && !hoja.etq.num && !hoja.etq.z && !hoja.etq.d,
+    'el punto de un bloque con atributos llega a la hoja con su número 91 y su cota 956.640; v63: sin etiquetas de la app, los textos son los del plano: ' + JSON.stringify(hoja));
+
+  // ── v63: una capa congelada solo en una ventana (grupo 331): ahí no sale lo de esa capa ni lo de un bloque puesto en ella; un punto con
+  // número y cota queda escondido (se puede mostrar en Lista de puntos). En la otra ventana, y en el modelo, todo sigue igual ──
+  const cong = await p.evaluate(() => {
+    const vent = (cx, id, h) => ['0', 'VIEWPORT', '8', '0', '67', '1', '10', cx, '20', '50', '40', '40', '41', '20', '68', '2', '69', id, '12', '50', '22', '0', '16', '0', '26', '0', '36', '1', '45', '10', ...(h ? ['331', h] : [])];
+    const t = ['0', 'SECTION', '2', 'TABLES', '0', 'LAYER', '5', 'C1', '2', 'COTA', '70', '0', '62', '3', '0', 'LAYER', '5', 'C2', '2', 'VIA', '70', '0', '62', '5', '0', 'BLOCK_RECORD', '5', 'A1', '2', '*Paper_Space', '0', 'ENDSEC',
+      '0', 'SECTION', '2', 'BLOCKS', '0', 'BLOCK', '2', '*Paper_Space', '10', '0', '20', '0', '0', 'ENDBLK',
+      '0', 'BLOCK', '2', 'FLECHA', '10', '0', '20', '0', '0', 'LINE', '8', '0', '10', '0', '20', '0', '11', '1', '21', '0', '0', 'ENDBLK', '0', 'ENDSEC',
+      '0', 'SECTION', '2', 'ENTITIES',
+      '0', 'LINE', '8', 'VIA', '10', '50', '20', '1', '11', '54', '21', '1',
+      '0', 'LINE', '8', 'COTA', '10', '50', '20', '2', '11', '54', '21', '2',
+      '0', 'INSERT', '8', 'COTA', '2', 'FLECHA', '10', '50', '20', '3',
+      '0', 'INSERT', '8', 'COTA', '2', 'PTO', '66', '1', '10', '52', '20', '1',
+      '0', 'ATTRIB', '8', 'COTA', '10', '52', '20', '1', '1', '91', '2', 'PUNTO', '0', 'ATTRIB', '8', 'COTA', '10', '52', '20', '1', '1', '956.640', '2', 'COTA', '0', 'SEQEND',
+      '0', 'INSERT', '8', 'VIA', '2', 'COTA-R', '66', '1', '10', '53', '20', '1',
+      '0', 'ATTRIB', '8', 'VIA', '10', '53', '20', '1', '40', '1.05', '50', '30', '1', '958.54', '2', 'COTA', '0', 'SEQEND',
+      '0', 'LINE', '8', '0', '67', '1', '10', '0', '20', '0', '11', '297', '21', '0',
+      ...['0', 'VIEWPORT', '8', '0', '67', '1', '10', '148', '20', '105', '40', '297', '41', '210', '68', '1', '69', '1', '12', '148', '22', '105', '45', '210'], ...vent('50', '2', 'c1'), ...vent('150', '3', null),
+      '0', 'ENDSEC', '0', 'SECTION', '2', 'OBJECTS', '0', 'LAYOUT', '330', '1A', '1', 'Lámina 1', '10', '0', '20', '0', '11', '297', '21', '210', '71', '1', '330', 'A1', '0', 'ENDSEC', '0', 'EOF'].join('\n');
+    const r = leerDXF(t, 1), L = r.presentaciones[0];
+    const izq = o => (o.t === 'p' ? o.x : o.p ? o.p.x : o.a ? o.a.x : o.v ? o.v[0].x : 999) < 100;
+    const obj = L.objs.filter(o => !(o.t === 'pl' && o.v.length === 5) && !(o.t === 'l' && o.b.x === 297));
+    const a = obj.filter(izq), b = obj.filter(o => !izq(o));
+    const sinNum = a.find(o => o.t === 'p' && !o.oculto), tx = b.find(o => o.t === 'tx' && o.s === '958.54');
+    return { sinNum: sinNum && { nom: sinNum.nom, z: sinNum.z }, tx: tx && { h: tx.h, rot: tx.rot, x: tx.p.x }, izq: a.map(o => o.t + (o.oculto ? ' oculto' : '')).sort(), der: b.map(o => o.t + (o.oculto ? ' oculto' : '')).sort(), z: (a.find(o => o.t === 'p') || {}).z, modelo: r.objs.length, modeloOculto: r.objs.filter(o => o.oculto).length };
+  });
+  ok(cong.izq.join() === 'l,p,p oculto,tx', 'en la ventana con la capa COTA congelada solo sale lo de VIA y el punto queda escondido: ' + JSON.stringify(cong.izq));
+  ok(cong.sinNum && cong.sinNum.nom === undefined && cong.sinNum.z === 958.54, 'un bloque que solo trae cota no recibe un número inventado en la hoja: ' + JSON.stringify(cong.sinNum));
+  ok(cong.tx && casi(cong.tx.h, 2.1, 1e-9) && casi(cong.tx.rot, Math.PI / 6, 1e-9) && casi(cong.tx.x, 156, 1e-9), 'la cota sale como el texto del plano: alto 1.05 × 2 = 2.1, girada 30°, en su sitio: ' + JSON.stringify(cong.tx));
+  ok(cong.der.join() === 'l,l,l,p,p,tx,tx,tx', 'en la otra ventana sale todo: ' + JSON.stringify(cong.der));
+  ok(cong.modelo === 5 && cong.modeloOculto === 0, '   el modelo no cambia (' + cong.modelo + ' objetos, ninguno oculto)');
 
   // ── v47: los 256 colores de AutoCAD entran con su color exacto y vuelven con su número ──
   const aci = await p.evaluate(() => {

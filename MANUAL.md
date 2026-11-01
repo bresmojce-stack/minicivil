@@ -8,8 +8,8 @@ sobre cualquier otra guía si chocan.
    código y lo que la app hace. No cambia nada. Brian decide qué se arregla. Cuando toque, recordárselo en una línea.
 2. **`/ponytail-audit` cada 7 publicaciones** de cada app (o cuando Brian lo pida). Se muestran los hallazgos y Brian decide.
 3. **Pruebas, las justas.** Mientras se trabaja: sintaxis, que la app abra y solo la prueba de lo que se cambió. La batería
-   completa, **una sola vez**, justo antes de publicar; si después hay un cambio pequeño, solo las pruebas de eso. No correr
-   la batería antes de escribir, a mitad ni después de publicar. La prueba que vale es la de Brian en terreno: decirle qué
+   completa, **cada 5 versiones** (Brian, 2026-11-01), justo antes de publicar; en las demás, solo las pruebas de lo que se cambió. No
+   correr la batería antes de escribir, a mitad ni después de publicar. La prueba que vale es la de Brian en terreno: decirle qué
    revisar.
 4. **Investigar antes de construir.** Antes de una función nueva o de arreglar algo de fondo (rendimiento, memoria, lectura
    de archivos, cálculos), ver cómo lo resuelven las apps líderes (AutoCAD, Civil 3D, Onshape, visores CAD…) y proponer de
@@ -19,6 +19,7 @@ sobre cualquier otra guía si chocan.
    lo pide.
 
 Contadores (actualizar al publicar):
+- Mini Civil, batería completa: última en la v62; la siguiente, en la v67.
 - Mini Civil: última inspección — v61 (2026-11-01); último ponytail-audit — v50.
 - TopoVías: última inspección — ninguna (desde v94); último ponytail-audit — v90.
 - Finca El Retiro: última inspección — ninguna (desde v12.7); último ponytail-audit — ninguno registrado.

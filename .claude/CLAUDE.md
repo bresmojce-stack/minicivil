@@ -51,10 +51,10 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 
 ## Al publicar (solo cuando Brian lo autorice)
 - Subir `TV_VERSION` en index.html, `CACHE_VERSION` en sw.js (ej. "2" y "minicivil-v2") y la versión del
-  `<title>` (hoy "Mini Civil v62").
+  `<title>` (hoy "Mini Civil v63").
 - `node pruebas/sintaxis.js` (sintaxis de cada `<script>` y versión igual en los dos archivos; corre también en
   GitHub en cada push a `main`, `.github/workflows/sintaxis.yml`).
-- Batería completa: `node pruebas/correr.js` (55 pruebas en PC, celular y tablet, también sin conexión con servidor real; `SOLO=nombre` corre algunas). Rápidas: `node pruebas/abrir.js` y `W=390 node pruebas/abrir.js` (PC y celular); `node pruebas/importar.js` si se tocaron los puntos o el DXF; `node pruebas/nube.js` si se tocó Drive o los datos.
+- Batería completa, **cada 5 versiones** (última v62, siguiente v67; Brian, 2026-11-01): `node pruebas/correr.js` (55 pruebas en PC, celular y tablet, también sin conexión con servidor real; `SOLO=nombre` corre algunas). Rápidas: `node pruebas/abrir.js` y `W=390 node pruebas/abrir.js` (PC y celular); `node pruebas/importar.js` si se tocaron los puntos o el DXF; `node pruebas/nube.js` si se tocó Drive o los datos.
 - Commit con `git -c user.email=bresmojce@gmail.com -c user.name=bresmojce-stack commit`, push a `main`.
 
 ## Mapa del código (buscar por el comentario de sección `// ───`)
@@ -76,6 +76,20 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 | PROYECTOS (Mini Civil) | **Espacio en el celular (v26)**: en la pestaña Dibujo no se dibuja `mc-barra-proy`; el botón de volver (`mc-volver`, solo la flecha) y `tv-acciones` (tema, Drive, guardado) van dentro de la fila del dibujo (`mc-barra-dib`), que `App` le pasa a `TabDibujo` en el prop `cabecera`. En las otras pestañas la fila sigue igual. En el Dibujo, nuevo/renombrar/duplicar/borrar/importar/tabla/DXF se fueron al menú `⋯` (`mc-mas`, panel `tv-dib-mas`, botones `mc-mas-*`), y la franja de comando `tv-dib-cmd` flota sobre el lienzo (`position: absolute`, ancho al contenido, `pointer-events: none` salvo en sus botones por la regla del `<style>`; se parte en varias líneas si hay muchos botones). El lienzo pasa de 479 a 601 px en el celular (del 57 % al 71 % de la pantalla). `proyectoNuevo` (`{ id, nombre, creado, dibujos }`), `useLocalProyectos` (guarda en `TV_KEY`, con deshacer), `copiaDeProyectos` (para `FalloApp`), `Logo`, `TarjetaNube`, `PantallaProyectos`, `App` (inicio = lista de proyectos; proyecto = pestañas `nav.tab`: Dibujo, Superficies…; desde la v22, dentro de un proyecto NO se dibuja la barra `tv-header`: el tema, Drive y el estado de guardado van en la fila del proyecto `mc-barra-proy`, y `tv-main` lleva `mc-sin-barra` para el margen de la franja de estado del celular. En el inicio la barra con el logo sigue), `FalloApp`, arranque y aviso de versión nueva |
 
 ## Estado y lo que sigue
+- Versión 63 (2026-11-01, Brian: "me gusta Material redondo"; y "sigamos tu recomendación" para los puntos de ZV-02; publicada sin batería
+  por pedido suyo). (1) **Iconos**: los 83 de `ICONOS`, con los nombres de siempre, son ahora Material Symbols Rounded (grosor 400, sin
+  relleno, paquete `@material-symbols/svg-400` 0.48.2, Apache 2.0, `lib/material-symbols/LICENSE`): cada uno es un texto con el camino `d`
+  en una caja de 960 y `Icono` lo pinta con relleno. Material no tiene imán: `magnet` sigue siendo el de Lucide (lista de trazos). Boceto:
+  https://claude.ai/artifact/VGYVuNYUXfmiW6JiGqCkY1. Flaticon se descartó: pide crédito a cada autor o Premium, no aclara si pueden ir en
+  código público, mezcla estilos y prohíbe robots. (2) **Hojas como en AutoCAD**, medido con el UBE1801: en ZV-02 el "91" no era del plano
+  (el bloque COTA-RASANTE solo trae COTA y `nPto++` lo inventaba: `inventado`, no pasa a la hoja) y la cota es un ATTRIB visible de 1,05 m
+  de alto. Ahora `textosDeAtributos`/`textosAt` lo llevan a la hoja como texto con su sitio, alto y giro, y `etqDe` en una presentación
+  apaga las etiquetas de la app (`num`, `z` y `d` en false; se prenden en Lista de puntos). De paso, los atributos de un rótulo puesto
+  en el papel ya se ven. (3) **Capas congeladas por ventana** (VP Freeze): `dwg_a_dxf.js` escribe el handle de cada LAYER (5) y los 331 de
+  cada VIEWPORT; `capaH`, `capasDeObj` y `hayCongeladas` en `leerDXFPasos`; en `verVentana` lo de una capa congelada no sale, y un punto
+  con atributos queda `oculto` (Lista de puntos → Mostrar todos). En el UBE1801, 52 de 61 ventanas congelan alguna capa; cambian ZV-03,
+  ZV-04 y ZV-07, ZV-02 no. `LECTOR_V` = 3. Las presentaciones ya guardadas hay que abrirlas de nuevo desde el DWG. Prueba en `leerdxf.js`.
+  Pendiente: que Brian confirme en AutoCAD que en ZV-02 ve la cota pequeña.
 - Versión 62 (2026-11-01, Brian: "arregla todo para v62", los 11 hallazgos de la primera inspección externa, sobre la v61; primera
   publicación desde la PC, que ahora edita y publica). (1) **Deshacer de un plano sin abrir**: `siguienteTrozado` no borra los
   pedazos que sigan en el historial (`trozosEnHistorial`). (2) **Abrir no cuenta como cambio**: `__trozos`/`__n` van en el sitio de
