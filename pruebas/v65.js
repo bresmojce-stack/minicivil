@@ -31,6 +31,12 @@ const path = require('path');
   ok(casi(r.bal.eq, 105) && casi(r.bal.corte, 12500, 0.01) && casi(r.bal.relleno, 12500, 0.01) && r.bal.filas === 13, 'cota de equilibrio del plano: 105, con corte = relleno: ' + JSON.stringify(r.bal));
   ok(r.sv.ini.join() === '0,0' && r.sv.fin.join() === '3,1' && r.sv.n > 3, 'curva suavizada: mismos extremos y más vértices (' + r.sv.n + ')');
 
+  // v67: los números no se repiten, y lo guardado con repetidos se repara
+  const ids = await p.evaluate(() => { const c = new Set(); for (let i = 0; i < 300000; i++) c.add(idNuevo()); const l = [{ id: 1, t: 'p', x: 0, y: 0 }, { id: 2, t: 'p', x: 1, y: 0 }, { id: 1, t: 'p', x: 2, y: 0 }, { id: 1, t: 'p', x: 3, y: 0 }], r = idsUnicos(l), sano = l.slice(0, 2);
+    return { n: c.size, unicos: new Set(r.map(o => o.id)).size, primero: r[0].id, x: r.map(o => o.x).join(), igual: idsUnicos(sano) === sano }; });
+  ok(ids.n === 300000, '300 000 números seguidos, sin ninguno repetido');
+  ok(ids.unicos === 4 && ids.primero === 1 && ids.x === '0,1,2,3' && ids.igual, 'lo guardado con números repetidos se repara sin mover nada, y lo sano queda igual');
+
   // ── LandXML: ida y vuelta, con sus triángulos tal cual ──
   const x = await p.evaluate(() => {
     const proy = { id: 1, nombre: 'P&L <1>', superficies: [{ id: 2, nombre: 'Terreno', fijo: { p: [1000, 2000, 10, 1010, 2000, 11, 1000, 2010, 12, 1010, 2010, 13], f: [0, 1, 3, 0, 3, 2] } }],
