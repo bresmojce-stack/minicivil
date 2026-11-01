@@ -51,10 +51,10 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 
 ## Al publicar (solo cuando Brian lo autorice)
 - Subir `TV_VERSION` en index.html, `CACHE_VERSION` en sw.js (ej. "2" y "minicivil-v2") y la versión del
-  `<title>` (hoy "Mini Civil v64").
+  `<title>` (hoy "Mini Civil v65").
 - `node pruebas/sintaxis.js` (sintaxis de cada `<script>` y versión igual en los dos archivos; corre también en
   GitHub en cada push a `main`, `.github/workflows/sintaxis.yml`).
-- Batería completa, **cada 5 versiones** (última v63, siguiente v68; Brian, 2026-11-01): `node pruebas/correr.js` (55 pruebas en PC, celular y tablet, también sin conexión con servidor real; `SOLO=nombre` corre algunas). Rápidas: `node pruebas/abrir.js` y `W=390 node pruebas/abrir.js` (PC y celular); `node pruebas/importar.js` si se tocaron los puntos o el DXF; `node pruebas/nube.js` si se tocó Drive o los datos.
+- Batería completa, **cada 5 versiones** (última v65, siguiente v68; Brian, 2026-11-01): `node pruebas/correr.js` (57 pruebas en PC, celular y tablet, también sin conexión con servidor real; `SOLO=nombre` corre algunas). Rápidas: `node pruebas/abrir.js` y `W=390 node pruebas/abrir.js` (PC y celular); `node pruebas/importar.js` si se tocaron los puntos o el DXF; `node pruebas/nube.js` si se tocó Drive o los datos.
 - Commit con `git -c user.email=bresmojce@gmail.com -c user.name=bresmojce-stack commit`, push a `main`.
 
 ## Mapa del código (buscar por el comentario de sección `// ───`)
@@ -76,6 +76,27 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 | PROYECTOS (Mini Civil) | **Espacio en el celular (v26)**: en la pestaña Dibujo no se dibuja `mc-barra-proy`; el botón de volver (`mc-volver`, solo la flecha) y `tv-acciones` (tema, Drive, guardado) van dentro de la fila del dibujo (`mc-barra-dib`), que `App` le pasa a `TabDibujo` en el prop `cabecera`. En las otras pestañas la fila sigue igual. En el Dibujo, nuevo/renombrar/duplicar/borrar/importar/tabla/DXF se fueron al menú `⋯` (`mc-mas`, panel `tv-dib-mas`, botones `mc-mas-*`), y la franja de comando `tv-dib-cmd` flota sobre el lienzo (`position: absolute`, ancho al contenido, `pointer-events: none` salvo en sus botones por la regla del `<style>`; se parte en varias líneas si hay muchos botones). El lienzo pasa de 479 a 601 px en el celular (del 57 % al 71 % de la pantalla). `proyectoNuevo` (`{ id, nombre, creado, dibujos }`), `useLocalProyectos` (guarda en `TV_KEY`, con deshacer), `copiaDeProyectos` (para `FalloApp`), `Logo`, `TarjetaNube`, `PantallaProyectos`, `App` (inicio = lista de proyectos; proyecto = pestañas `nav.tab`: Dibujo, Superficies…; desde la v22, dentro de un proyecto NO se dibuja la barra `tv-header`: el tema, Drive y el estado de guardado van en la fila del proyecto `mc-barra-proy`, y `tv-main` lleva `mc-sin-barra` para el margen de la franja de estado del celular. En el inicio la barra con el logo sigue), `FalloApp`, arranque y aviso de versión nueva |
 
 ## Estado y lo que sigue
+- Versión 65 (2026-11-01, ideas de GitHub elegidas por Brian: "simple, funcional, que no se pegue"; "la mayoría de veces va a correr en un
+  celular"). Batería 57 de 57. Medido con el UBE1801 (v64 → v65): espacio 143 → 43 MB, abrir el proyecto 1,58 → 0,95 s, pico 460 → 310 MB,
+  memoria tras limpiar 171 → 98 MB, lo guardado idéntico. (1) **Hojas vivas** (sección HOJAS VIVAS, antes de `leerDXF`), en lugar de los bloques
+  repetidos: medido, los bloques solo daban ×2 en el modelo y 215 000 de los 271 000 objetos eran copias del modelo en las hojas. Una presentación
+  guarda su papel en `objs`, sus ventanas en `vent` ({ C, w, hh, s, tw, Tg, Vc, cong, esc }) y `modeloId`. `ventanaPasos` pasa el modelo al papel,
+  `prepararHoja` lo hace por tandas de 12 ms al abrirla y `hojaViva` de una (ventanas del PDF). Solo la hoja abierta vive en memoria (`HOJA_ULT`,
+  se suelta al salir). `leerDXF` la entrega armada (para las pruebas); `leerDXFLotes`, liviana. Si se edita queda con objetos propios: la armada no lleva
+  `vent`, y `HOJA_CRUDA` devuelve la guardada cuando no cambió. Si el modelo cambia, la hoja lo refleja. Sin el modelo, solo el papel. Los puntos llevan
+  `atx` (atributos, medidos desde el punto) y `sinNum`. (2) **Capas**: cada objeto lleva `capa` (y `capaI` si lo trae un bloque de otra capa);
+  `dib.capasOff` = apagadas; `visibles` las quita, `crearDXF` no las lleva y escribe la capa de cada objeto, las hojas tampoco; los cálculos no cambian.
+  Lo apagado en AutoCAD entra apagado (`r.capasOff`, `r.nApagados`). Panel `mc-capas` (Herramientas → Capas, `@capas`), solo en el Modelo. Las capas usan el
+  camino de borrar sin rearmar (`ocultar` y `G.mx`). `capaDeps` y `fd` dependen de `visibles`. (3) **Volumen exacto**: `volumenPasos` (triángulo contra
+  triángulo, Sutherland–Hodgman, `prisma` parte donde cruza), `useVolumenExacto` por tandas, `CACHE_VOL`, tarjeta `mc-vol-exacto`. (4) **Cota de equilibrio**:
+  `curvaVolumenCota` (promedio de cotas ponderado por área, sin tanteos), `volumenAPlano`, `SvgCurvaVolumen`. Solo contra plano horizontal; la idea de
+  malla fina y gruesa (7) no se hizo. (5) **Curvas suavizadas**: `sup.suave`, `t.suave`, `suavizarTramos` (Chaikin, 2 pasadas). (6) **LandXML 1.2**: `crearLandXML`,
+  `leerLandXML` (Norte Este Cota; pies a metros), `sup.fijo` = { p, f } conserva los triángulos de otro programa. Falta probar con un archivo real de Civil 3D.
+  (7) **Plataformas**: `taludesPlataforma` (rayos, abanico en esquinas salientes), `PanelPlataforma`: crea un dibujo con puntos, plataforma y borde, y una
+  superficie con quiebres y límite, en un paso de Deshacer (`onProyecto`). Falta una prueba de su volumen completo. (8) **Memoria y pausas**: al salir del Dibujo
+  se suelta la tarjeta (`GPU.pre` guarda el motor vacío); `cajaRejilla` y `trazarObj` leen `__vf` sin armar vértices; `arc` gira el vértice anterior; `verTodo`
+  usa las cajas. **No se hizo planos en binario**: leer 8 pedazos 48 → 39 ms no justifica cambiar el formato. En esta PC, medir con
+  `--disable-backgrounding-occluded-windows`: una ventana tapada frena los cuadros. `LECTOR_V` = 5. Prueba `pruebas/v65.js` (PC y celular).
 - Versión 64 (2026-11-01, `/ponytail-audit` sobre la v63; Brian: "primero el 8, luego el resto"). Sin batería completa (55 de 55 fue con
   la v63; se corrieron las pruebas de lo tocado). (1) **Bloques con atributos**: se dibujan siempre. El punto va además y solo si el bloque
   tiene hasta 6 atributos (el rótulo del UBE1801 tiene 13 y `NUMERO-PLANO` lo volvía un punto "02" sin sus líneas ni textos); `esPunto`

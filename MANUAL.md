@@ -19,7 +19,7 @@ sobre cualquier otra guía si chocan.
    lo pide.
 
 Contadores (actualizar al publicar):
-- Mini Civil, batería completa: última en la v63; la siguiente, en la v68.
+- Mini Civil, batería completa: última en la v65; la siguiente, en la v68.
 - Mini Civil: última inspección — v61 (2026-11-01); último ponytail-audit — v63.
 - TopoVías: última inspección — ninguna (desde v94); último ponytail-audit — v90.
 - Finca El Retiro: última inspección — ninguna (desde v12.7); último ponytail-audit — ninguno registrado.

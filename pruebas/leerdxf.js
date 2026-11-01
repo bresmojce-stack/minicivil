@@ -248,13 +248,13 @@ const DXF = ['0','SECTION','2','HEADER','9','$ACADVER','1','AC1015','0','ENDSEC'
       '0', 'LINE', '8', 'APAGADA', '10', '0', '20', '50', '11', '9', '21', '50',
       '0', 'LINE', '8', 'HELADA', '10', '0', '20', '60', '11', '9', '21', '60',
       '0', 'ENDSEC', '0', 'EOF'].join('\n');
-    const r = leerDXF(t, 1), pts = r.objs.filter(o => o.t === 'p'), lin = r.objs.filter(o => o.t === 'l');
-    return { pts: pts.map(o => o.nom + '/' + o.z), lin: lin.length, tx: r.objs.filter(o => o.t === 'tx').length, apagadas: (r.saltados.find(x => /apagad/i.test(x.tipo)) || {}).n };
+    const r = leerDXF(t, 1), off = new Set(r.capasOff), pts = r.objs.filter(o => o.t === 'p'), lin = r.objs.filter(o => o.t === 'l' && !off.has(o.capa));
+    return { pts: pts.map(o => o.nom + '/' + o.z), lin: lin.length, tx: r.objs.filter(o => o.t === 'tx').length, apagadas: r.nApagados, conCapa: r.objs.filter(o => o.t === 'l' && off.has(o.capa)).length };
   });
   ok(blo.pts.join() === '7/12.5', 'el rótulo no se vuelve un punto, y el punto con símbolo sale una sola vez: ' + JSON.stringify(blo.pts));
   ok(blo.lin === 2, 'la línea del rótulo y la del símbolo se dibujan; las de capas apagadas no: ' + blo.lin + ' líneas');
   ok(blo.tx === 7, 'los 7 atributos del rótulo salen como texto: ' + blo.tx);
-  ok(blo.apagadas === 2, 'la revisión cuenta 2 objetos de capas apagadas o congeladas: ' + blo.apagadas);
+  ok(blo.apagadas === 2 && blo.conCapa === 2, 'las 2 líneas de capas apagadas entran apagadas, para poder prenderlas: ' + blo.apagadas);
 
   // ── v47: los 256 colores de AutoCAD entran con su color exacto y vuelven con su número ──
   const aci = await p.evaluate(() => {
