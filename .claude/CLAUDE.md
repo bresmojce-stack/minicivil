@@ -51,7 +51,7 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 
 ## Al publicar (solo cuando Brian lo autorice)
 - Subir `TV_VERSION` en index.html, `CACHE_VERSION` en sw.js (ej. "2" y "minicivil-v2") y la versión del
-  `<title>` (hoy "Mini Civil v65").
+  `<title>` (hoy "Mini Civil v66").
 - `node pruebas/sintaxis.js` (sintaxis de cada `<script>` y versión igual en los dos archivos; corre también en
   GitHub en cada push a `main`, `.github/workflows/sintaxis.yml`).
 - Batería completa, **cada 5 versiones** (última v65, siguiente v68; Brian, 2026-11-01): `node pruebas/correr.js` (57 pruebas en PC, celular y tablet, también sin conexión con servidor real; `SOLO=nombre` corre algunas). Rápidas: `node pruebas/abrir.js` y `W=390 node pruebas/abrir.js` (PC y celular); `node pruebas/importar.js` si se tocaron los puntos o el DXF; `node pruebas/nube.js` si se tocó Drive o los datos.
@@ -76,6 +76,11 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 | PROYECTOS (Mini Civil) | **Espacio en el celular (v26)**: en la pestaña Dibujo no se dibuja `mc-barra-proy`; el botón de volver (`mc-volver`, solo la flecha) y `tv-acciones` (tema, Drive, guardado) van dentro de la fila del dibujo (`mc-barra-dib`), que `App` le pasa a `TabDibujo` en el prop `cabecera`. En las otras pestañas la fila sigue igual. En el Dibujo, nuevo/renombrar/duplicar/borrar/importar/tabla/DXF se fueron al menú `⋯` (`mc-mas`, panel `tv-dib-mas`, botones `mc-mas-*`), y la franja de comando `tv-dib-cmd` flota sobre el lienzo (`position: absolute`, ancho al contenido, `pointer-events: none` salvo en sus botones por la regla del `<style>`; se parte en varias líneas si hay muchos botones). El lienzo pasa de 479 a 601 px en el celular (del 57 % al 71 % de la pantalla). `proyectoNuevo` (`{ id, nombre, creado, dibujos }`), `useLocalProyectos` (guarda en `TV_KEY`, con deshacer), `copiaDeProyectos` (para `FalloApp`), `Logo`, `TarjetaNube`, `PantallaProyectos`, `App` (inicio = lista de proyectos; proyecto = pestañas `nav.tab`: Dibujo, Superficies…; desde la v22, dentro de un proyecto NO se dibuja la barra `tv-header`: el tema, Drive y el estado de guardado van en la fila del proyecto `mc-barra-proy`, y `tv-main` lleva `mc-sin-barra` para el margen de la franja de estado del celular. En el inicio la barra con el logo sigue), `FalloApp`, arranque y aviso de versión nueva |
 
 ## Estado y lo que sigue
+- Versión 66 (2026-11-01, probando la v65 en el navegador como una persona; Brian: "es bueno que corras la app como una persona común").
+  (1) **Plataforma**: el borde del talud cruzaba el de la plataforma donde el terreno pasa por la cota, la línea de quiebre no se respetaba y el interior
+  quedaba mal (31 m³ contra unos 280). Ahora `taludesPlataforma` pone un vértice de plataforma por rayo y uno donde el talud mide cero (`ponerP`, `previo`), compartido
+  por los dos bordes. Medido: 286,4 sobre el terreno y 30,2 bajo él, igual a la cuenta a mano. (2) **Proyecto sin dibujos**: `cabecera` también en la salida temprana
+  de `TabDibujo` (no había cómo volver). (3) La curva de equilibrio con fondo blanco fijo. Prueba en `v65.js`. El navegador integrado no permite `prompt()`.
 - Versión 65 (2026-11-01, ideas de GitHub elegidas por Brian: "simple, funcional, que no se pegue"; "la mayoría de veces va a correr en un
   celular"). Batería 57 de 57. Medido con el UBE1801 (v64 → v65): espacio 143 → 43 MB, abrir el proyecto 1,58 → 0,95 s, pico 460 → 310 MB,
   memoria tras limpiar 171 → 98 MB, lo guardado idéntico. (1) **Hojas vivas** (sección HOJAS VIVAS, antes de `leerDXF`), en lugar de los bloques

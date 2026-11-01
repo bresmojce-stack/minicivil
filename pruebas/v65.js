@@ -58,6 +58,11 @@ const path = require('path');
   ok(pl.n > 20 && casi(pl.min, 2, 0.01) && casi(pl.max, 2, 0.01) && pl.z && pl.fuera === 0, 'relleno de 1 m a 2:1: el talud toca el terreno a 2 m del borde, a cota 100 (' + pl.n + ' puntos, ' + pl.min.toFixed(3) + ' a ' + pl.max.toFixed(3) + ' m)');
   ok(casi(pl.minC, 1.5, 0.01) && casi(pl.maxC, 1.5, 0.01), 'corte de 1 m a 1,5:1: toca a 1,5 m (' + pl.minC.toFixed(3) + ' a ' + pl.maxC.toFixed(3) + ' m)');
 
+  // un proyecto sin dibujos también deja volver al inicio
+  await p.fill('form input', 'Vacío'); await p.click('form button[type=submit]'); await p.waitForTimeout(300);
+  ok(!!(await p.$('.mc-volver')), 'un proyecto sin dibujos tiene botón de volver');
+  await p.click('.mc-volver'); await p.waitForSelector('form input');
+
   // ── hojas que miran el modelo y capas ──
   await p.evaluate(() => {
     const lin = (id, capa, x) => ({ id, t: 'l', a: { x, y: 0 }, b: { x, y: 10 }, capa });
@@ -99,9 +104,13 @@ const path = require('path');
   ok(/105\.000/.test(await p.textContent('.mc-equilibrio-cota')), 'y la cota de equilibrio: ' + (await p.textContent('.mc-equilibrio-cota')));
   await p.click('[data-pestana=superficies]'); await p.waitForSelector('.mc-sup-vistas');
   await p.click('[data-vista=planta]'); await p.waitForSelector('.mc-plataforma-abrir'); await p.click('.mc-plataforma-abrir'); await p.waitForSelector('.mc-plataforma');
-  await p.selectOption('.mc-plat-fig', { index: 1 }); await p.fill('.mc-plat-cota', '106'); await p.click('.mc-plat-crear'); await p.waitForTimeout(400);
-  const pla = await p.evaluate(() => { const l = HIST.actual.proyectos[0], s = l.superficies[l.superficies.length - 1], t = superficieTIN(l, s); return { n: l.superficies.length, tri: t.n, dib: l.dibujos.length, nombre: s.nombre, zmax: t.zmax, zmin: t.zmin }; });
-  ok(pla.n === 3 && pla.tri > 20 && casi(pla.zmax, 106, 1e-6) && pla.zmin > 100, 'Plataforma con taludes crea su dibujo y su superficie: ' + JSON.stringify(pla));
+  await p.selectOption('.mc-plat-fig', { index: 1 }); await p.fill('.mc-plat-cota', '105.5'); await p.click('.mc-plat-crear'); await p.waitForTimeout(400);
+  const pla = await p.evaluate(() => { const l = HIST.actual.proyectos[0], s = l.superficies[l.superficies.length - 1], t = superficieTIN(l, s), g = volumenPasos(t, superficieTIN(l, l.superficies[0])); let x = g.next(); while (!x.done) x = g.next();
+    return { n: l.superficies.length, tri: t.n, avisos: t.avisos, centro: zEnTIN(t, 50, 50), esquina: zEnTIN(t, 42, 58), corte: x.value.corte, relleno: x.value.relleno, area: x.value.area }; });
+  ok(pla.n === 3 && pla.tri > 20 && !pla.avisos.length, 'Plataforma con taludes crea su superficie sin avisos: ' + JSON.stringify(pla.avisos));
+  ok(casi(pla.centro, 105.5) && casi(pla.esquina, 105.5), 'el interior de la plataforma queda plano a su cota: ' + pla.centro + ' y ' + pla.esquina);
+  // a mano: interior 15 × 20 × 0,75 = 225 de relleno y 5 × 20 × 0,25 = 25 de corte, más los taludes (unos 60 y 5)
+  ok(pla.corte > 275 && pla.corte < 295 && pla.relleno > 28 && pla.relleno < 33, 'el volumen de la plataforma cuadra con la cuenta a mano: ' + pla.corte.toFixed(1) + ' sobre el terreno y ' + pla.relleno.toFixed(1) + ' bajo el terreno');
   await p.keyboard.press('Control+z'); await p.waitForTimeout(200);
   ok(await p.evaluate(() => HIST.actual.proyectos[0].superficies.length) === 2, 'Deshacer la quita en un solo paso');
   ok(!errs.length, 'sin errores en la página' + (errs.length ? ': ' + errs.slice(0, 2).join(' | ') : ''));
