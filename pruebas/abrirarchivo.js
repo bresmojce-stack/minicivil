@@ -2,7 +2,7 @@
 // Necesita un servidor de verdad (el lector de DWG se carga como módulo, y eso no funciona desde file://).
 // El DWG es el de ejemplo de LibreDWG (pruebas/muestra_2018.dwg, AutoCAD 2018).
 //   node pruebas/abrirarchivo.js [carpeta del repositorio]        (W=390 para celular)
-const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node22/lib/node_modules/playwright');
+const { chromium } = require(process.env.PLAYWRIGHT || require('path').join(__dirname, 'pw.js'));
 const path = require('path'), http = require('http'), fs = require('fs'), os = require('os');
 (async () => {
   const W = +(process.env.W || 1100), movil = W < 600;

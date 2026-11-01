@@ -1,6 +1,6 @@
 // Superficies, secciones y volúmenes: cálculo con casos de resultado conocido (planos) y recorrido en pantalla.
 //   node pruebas/superficies.js [index.html]        (W=390 para celular)
-const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node22/lib/node_modules/playwright');
+const { chromium } = require(process.env.PLAYWRIGHT || require('path').join(__dirname, 'pw.js'));
 const path = require('path');
 (async () => {
   const W = +(process.env.W || 1280), movil = W < 600;

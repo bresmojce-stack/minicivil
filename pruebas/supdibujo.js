@@ -1,7 +1,7 @@
 // Superficie dentro del Dibujo: quitar y devolver triángulos, voltear un lado, unir dos puntos, y cotas en una polilínea dibujada
 // (por vértice, como línea de quiebre con esas cotas y en el DXF como polilínea 3D).
 //   node pruebas/supdibujo.js [index.html]        (W=390 para celular)
-const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node22/lib/node_modules/playwright');
+const { chromium } = require(process.env.PLAYWRIGHT || require('path').join(__dirname, 'pw.js'));
 const path = require('path');
 (async () => {
   const W = +(process.env.W || 1280), movil = W < 600;

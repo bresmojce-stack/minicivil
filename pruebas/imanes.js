@@ -1,7 +1,7 @@
 // Imanes Cercano y Perpendicular (v29). Números a mano:
 //   línea A(0,0)-B(100,0). Perpendicular desde (30,40) cae en (30,0). Cercano al cursor (70,3) cae en (70,0).
 //   node pruebas/imanes.js [index.html]        (W=390 para celular)
-const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node22/lib/node_modules/playwright');
+const { chromium } = require(process.env.PLAYWRIGHT || require('path').join(__dirname, 'pw.js'));
 const path = require('path');
 (async () => {
   const W = +(process.env.W || 1100), movil = W < 600;

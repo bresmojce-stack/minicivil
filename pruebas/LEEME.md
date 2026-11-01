@@ -23,6 +23,6 @@
     node pruebas/webgl.js                        # v50: dibujo de 25 000 objetos con WebGL (por software) = el mismo con el canvas; v57: borrar sin rearmar
     node pruebas/vertodo.js                      # v57: Ver todo deja fuera los objetos sueltos lejanos; v58: pestañas de presentaciones (W=390 celular)
 
-Usan Playwright con el Chromium de la máquina (`PLAYWRIGHT=/ruta/a/playwright` si está en otro lugar).
+Usan Playwright por `pruebas/pw.js`, que lo busca en la nube y en la PC de Brian y, si no hay Chromium propio, usa el Chrome instalado (`PLAYWRIGHT=/ruta/a/playwright` si está en otro lugar).
 `dibujo.js` debe dar lo mismo que `pruebas/dibujo.js` de TopoVías, menos el alto del lienzo (aquí no hay pestañas
 de la vía), el nombre del DXF y el paso de "vía bloqueada", que en Mini Civil no existe.

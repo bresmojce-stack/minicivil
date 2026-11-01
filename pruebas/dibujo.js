@@ -1,6 +1,6 @@
 // Recorrido del Dibujo (copiado de pruebas/dibujo.js de TopoVías; da lo mismo que allá, menos el alto del lienzo y el nombre del DXF)
 //   node pruebas/dibujo.js index.html <salida>   (W=390 para celular)
-const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node22/lib/node_modules/playwright');
+const { chromium } = require(process.env.PLAYWRIGHT || require('path').join(__dirname, 'pw.js'));
 (async () => {
   const W = +(process.env.W || 1280), movil = W < 600;
   const b = await chromium.launch();

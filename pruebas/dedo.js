@@ -1,7 +1,7 @@
 // Dibujo con el dedo (boceto aprobado por Brian): arrastrar un dedo mueve la vista en cualquier herramienta,
 // un toque corto pone el punto (pegado al imán) y, si el dedo se queda quieto, sale la lupa para apuntar fino.
 //   node pruebas/dedo.js [index.html]
-const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node22/lib/node_modules/playwright');
+const { chromium } = require(process.env.PLAYWRIGHT || require('path').join(__dirname, 'pw.js'));
 const path = require('path');
 (async () => {
   const archivo = path.resolve(process.argv[2] || path.join(__dirname, '..', 'index.html'));

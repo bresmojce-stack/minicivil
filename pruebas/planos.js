@@ -3,7 +3,7 @@
 // bloques en espejo y objetos dibujados en otro plano. Más el paso de DWG (lo que da LibreDWG) a DXF.
 // Todo con un DXF escrito a mano y resultados conocidos.
 //   node pruebas/planos.js [index.html]        (W=390 para celular)
-const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node22/lib/node_modules/playwright');
+const { chromium } = require(process.env.PLAYWRIGHT || require('path').join(__dirname, 'pw.js'));
 const path = require('path');
 
 const DXF = ['0', 'SECTION', '2', 'HEADER', '9', '$INSUNITS', '70', '6', '0', 'ENDSEC',

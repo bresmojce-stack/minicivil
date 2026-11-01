@@ -2,7 +2,7 @@
 // cualquier línea que contenga "ERR", y "TERRENO" la contiene (T-ERR-ENO).
 // v35: (1) curvas de nivel y triángulos al DXF, (2) ATTRIB del DXF como puntos, (3) replanteo desde estación.
 //   node pruebas/v35.js [index.html]        (W=390 para celular)
-const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node22/lib/node_modules/playwright');
+const { chromium } = require(process.env.PLAYWRIGHT || require('path').join(__dirname, 'pw.js'));
 const path = require('path');
 (async () => {
   const W = +(process.env.W || 1100), movil = W < 600;

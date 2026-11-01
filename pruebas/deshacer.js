@@ -1,7 +1,7 @@
 // v36: deshacer en todos los módulos. Ctrl+Z en el Dibujo 2D deshace lo ya dibujado, y fuera del Dibujo
 // (Superficies, Secciones, Volúmenes, Presentación) hay botón de deshacer y Ctrl+Z.
 //   node pruebas/deshacer.js [index.html]        (W=390 para celular)
-const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node22/lib/node_modules/playwright');
+const { chromium } = require(process.env.PLAYWRIGHT || require('path').join(__dirname, 'pw.js'));
 const path = require('path');
 (async () => {
   const W = +(process.env.W || 1100), movil = W < 600;

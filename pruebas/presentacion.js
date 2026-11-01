@@ -1,6 +1,6 @@
 // Presentación (hojas para exportar): escala exacta, rótulos dentro de la hoja, PDF igual a la pantalla y recorrido en pantalla.
 //   node pruebas/presentacion.js [index.html]        (W=390 para celular)
-const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node22/lib/node_modules/playwright');
+const { chromium } = require(process.env.PLAYWRIGHT || require('path').join(__dirname, 'pw.js'));
 const path = require('path'), fs = require('fs'), os = require('os');
 (async () => {
   const W = +(process.env.W || 1280), movil = W < 600;

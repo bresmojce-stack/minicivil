@@ -1,7 +1,7 @@
 // v62: lo que encontró el inspector externo sobre la v61 y no tenía prueba: Deshacer tras eliminar un plano sin abrir, las claves del
 // dibujo al armarlo, la hora de cada proyecto, copias automáticas y de rescate con planos sin abrir, DXF con cotas a medias y comas en textos.
 //   node pruebas/v62.js [carpeta del repositorio]
-const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node22/lib/node_modules/playwright');
+const { chromium } = require(process.env.PLAYWRIGHT || require('path').join(__dirname, 'pw.js'));
 const path = require('path'), http = require('http'), fs = require('fs');
 (async () => {
   const raiz = path.resolve(process.argv[2] || path.join(__dirname, '..'));

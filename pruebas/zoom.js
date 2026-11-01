@@ -4,7 +4,7 @@
 // solo lleva lo que se está editando. Aquí se revisa: que nada quede movido ni escalado a mano, que el punto mida lo mismo en la
 // imagen antes/durante/después del gesto, que solo se pinte lo que cabe en la pantalla, que una nube de puntos no cree miles de
 // piezas en el svg, el pellizco con un dedo fuera del lienzo y "Regenerar imagen".
-const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node22/lib/node_modules/playwright');
+const { chromium } = require(process.env.PLAYWRIGHT || require('path').join(__dirname, 'pw.js'));
 const path = require('path');
 (async () => {
   const archivo = path.resolve(process.argv[2] || path.join(__dirname, '..', 'index.html'));

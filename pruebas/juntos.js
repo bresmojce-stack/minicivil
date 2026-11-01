@@ -1,7 +1,7 @@
 // Trazos juntos (v33; desde la v45 en el canvas): lo que comparte estilo se pinta en UN camino por estilo, así un plano
 // importado con miles de líneas no arrastra al mover. Lo que se edita (elegido, señalado) se pinta además en el svg; lo de relleno sigue en el svg.
 //   node pruebas/juntos.js [index.html]        (W=390 para celular)
-const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node22/lib/node_modules/playwright');
+const { chromium } = require(process.env.PLAYWRIGHT || require('path').join(__dirname, 'pw.js'));
 const path = require('path');
 (async () => {
   const W = +(process.env.W || 1100), movil = W < 600;

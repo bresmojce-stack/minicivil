@@ -1,6 +1,6 @@
 // 3D dentro del Dibujo: botón 2D | 3D, puntos, líneas a su cota y muros; tocar un triángulo, quitarlo y verlo en 2D.
 //   node pruebas/dibujo3d.js [index.html]        (W=390 para celular)
-const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node22/lib/node_modules/playwright');
+const { chromium } = require(process.env.PLAYWRIGHT || require('path').join(__dirname, 'pw.js'));
 const path = require('path');
 (async () => {
   const W = +(process.env.W || 1280), movil = W < 600;

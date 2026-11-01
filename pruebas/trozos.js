@@ -1,7 +1,7 @@
 // v50: un dibujo grande (más de 20 000 objetos) se guarda en IndexedDB por pedazos de 5 000, cada uno en su turno, y al abrir
 // se arma de nuevo. v51: la copia automática no lleva los proyectos temporales (lo abierto sin guardar).
 //   node pruebas/trozos.js [carpeta del repositorio]
-const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node22/lib/node_modules/playwright');
+const { chromium } = require(process.env.PLAYWRIGHT || require('path').join(__dirname, 'pw.js'));
 const path = require('path'), http = require('http'), fs = require('fs');
 (async () => {
   const raiz = path.resolve(process.argv[2] || path.join(__dirname, '..'));
@@ -108,6 +108,20 @@ const path = require('path'), http = require('http'), fs = require('fs');
   const inicio = await p2.evaluate(() => !!document.querySelector('.mc-abrir-archivo') && !document.querySelector('.tv-dib-svg'));
   await p2.close();
   ok(dentro && inicio, 'cerrar con un proyecto abierto y volver a entrar arranca en el inicio (dentro: ' + dentro + ', inicio: ' + inicio + ')');
+  // v64: duplicar un plano no lo pasa a texto: la copia comparte los objetos (siguen compactos) y editar uno no toca el otro
+  const dup = await p.evaluate(async () => {
+    const objs = []; for (let i = 0; i < 25000; i++) objs.push(compactarObj({ id: 'd' + i, t: 'pl', v: [{ x: i, y: 0 }, { x: i, y: 1 }, { x: i, y: 2 }, { x: i, y: 3 }] }));
+    const orig = { id: 500, nombre: 'Orig', creado: '', dibujos: [{ id: 501, nombre: 'D', objs }] };
+    HIST.crudo.proyectos([orig]); await new Promise(z => setTimeout(z, 100));
+    return { hay: !!document.querySelector('.mc-proyecto') };
+  });
+  await p.evaluate(() => { sessionStorage.clear(); });
+  await p.click('.mc-proyecto button:has-text("Duplicar")'); await p.waitForTimeout(600);
+  const dup2 = await p.evaluate(async () => { const l = HIST.actual.proyectos, c = l.find(x => x.nombre === 'Orig (copia)'), o = l.find(x => x.nombre === 'Orig');
+    const r = { copia: !!c, compacta: !!(c && c.dibujos[0].objs[0].__vf), mismoId: c && c.id === o.id, n: c && c.dibujos[0].objs.length };
+    HIST.crudo.proyectos(l.map(x => x === o ? { ...x, dibujos: [{ ...x.dibujos[0], objs: x.dibujos[0].objs.slice(1) }] } : x));
+    r.copiaIgual = HIST.actual.proyectos.find(x => x.nombre === 'Orig (copia)').dibujos[0].objs.length; return r; });
+  ok(dup.hay && dup2.copia && dup2.compacta && !dup2.mismoId && dup2.n === 25000 && dup2.copiaIgual === 25000, 'duplicar un plano: copia compacta, sin texto, y editar el original no la toca: ' + JSON.stringify(dup2));
   ok(!errs.length, 'sin errores en la página' + (errs.length ? ': ' + errs.join(' | ') : ''));
   await b.close(); srv.close();
   console.log(fallas ? fallas + ' falla(s).' : 'Todo bien.'); process.exit(fallas ? 1 : 0);

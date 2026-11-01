@@ -1,7 +1,7 @@
 // Dibujo 3D (Brian, v22): con el botón prendido, cada vértice que se pega a un punto se lleva su cota; apagado, todo queda plano.
 // También revisa la barra de arriba, que dentro de un proyecto se fundió con la fila del proyecto para dejar más lienzo.
 //   node pruebas/dib3d.js [index.html]        (W=390 para celular)
-const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node22/lib/node_modules/playwright');
+const { chromium } = require(process.env.PLAYWRIGHT || require('path').join(__dirname, 'pw.js'));
 const path = require('path');
 (async () => {
   const W = +(process.env.W || 1100), movil = W < 600;

@@ -1,7 +1,7 @@
 // Perfil longitudinal (v27): el terreno a lo largo de la línea de las secciones, con números de resultado conocido.
 // Terreno de prueba: plano con 2 % a lo largo de x (z = 100 + 0.02·x) y una loma en otra superficie, para ver dos líneas.
 //   node pruebas/perfil.js [index.html]        (W=390 para celular)
-const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node22/lib/node_modules/playwright');
+const { chromium } = require(process.env.PLAYWRIGHT || require('path').join(__dirname, 'pw.js'));
 const path = require('path');
 (async () => {
   const W = +(process.env.W || 1100), movil = W < 600;

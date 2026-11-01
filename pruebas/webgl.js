@@ -4,7 +4,7 @@
 // caer en el mismo sitio que en el canvas.
 // v53: con WEBGPU=1 lo mismo con WebGPU (por software, SwiftShader): la página se sirve por http, porque WebGPU solo existe ahí.
 //   node pruebas/webgl.js [index.html]      WEBGPU=1 node pruebas/webgl.js [index.html]
-const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node22/lib/node_modules/playwright');
+const { chromium } = require(process.env.PLAYWRIGHT || require('path').join(__dirname, 'pw.js'));
 const path = require('path'), http = require('http'), fs = require('fs');
 const WGPU = !!process.env.WEBGPU, MOTOR = WGPU ? 'webgpu' : 'webgl';
 (async () => {

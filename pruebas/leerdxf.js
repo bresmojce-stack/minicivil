@@ -1,7 +1,7 @@
 // Importar DXF (v31). Se prueba con un DXF escrito a mano (LWPOLYLINE con curva, bloque, MTEXT,
 // sombreado y cota que deben saltarse) y con nuestro propio DXF de ida y vuelta.
 //   node pruebas/leerdxf.js [index.html]        (W=390 para celular)
-const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node22/lib/node_modules/playwright');
+const { chromium } = require(process.env.PLAYWRIGHT || require('path').join(__dirname, 'pw.js'));
 const path = require('path');
 
 // DXF a mano: 2 capas, un punto, una línea, una LWPOLYLINE cerrada con un lado curvo (bulge 0.5),
@@ -234,6 +234,27 @@ const DXF = ['0','SECTION','2','HEADER','9','$ACADVER','1','AC1015','0','ENDSEC'
   ok(cong.tx && casi(cong.tx.h, 2.1, 1e-9) && casi(cong.tx.rot, Math.PI / 6, 1e-9) && casi(cong.tx.x, 156, 1e-9), 'la cota sale como el texto del plano: alto 1.05 × 2 = 2.1, girada 30°, en su sitio: ' + JSON.stringify(cong.tx));
   ok(cong.der.join() === 'l,l,l,p,p,tx,tx,tx', 'en la otra ventana sale todo: ' + JSON.stringify(cong.der));
   ok(cong.modelo === 5 && cong.modeloOculto === 0, '   el modelo no cambia (' + cong.modelo + ' objetos, ninguno oculto)');
+
+  // ── v64: un rótulo con atributos se dibuja entero (no es un punto); un punto con símbolo lleva su símbolo; lo apagado no se dibuja ──
+  const blo = await p.evaluate(() => {
+    const at = (t, v) => ['0', 'ATTRIB', '8', '0', '10', '5', '20', '5', '40', '1', '1', v, '2', t];
+    const rotulo = ['NUMERO-PLANO', 'A', 'B', 'C', 'D', 'E', 'F'].flatMap((t, i) => at(t, 'v' + i));
+    const t = ['0', 'SECTION', '2', 'TABLES', '0', 'LAYER', '2', 'APAGADA', '70', '0', '62', '-3', '0', 'LAYER', '2', 'HELADA', '70', '1', '62', '3', '0', 'ENDSEC',
+      '0', 'SECTION', '2', 'BLOCKS', '0', 'BLOCK', '2', 'ROT', '10', '0', '20', '0', '0', 'LINE', '8', '0', '10', '0', '20', '0', '11', '9', '21', '0', '0', 'ENDBLK',
+      '0', 'BLOCK', '2', 'SIM', '10', '0', '20', '0', '0', 'POINT', '8', '0', '10', '0', '20', '0', '0', 'LINE', '8', '0', '10', '0', '20', '0', '11', '1', '21', '0', '0', 'ENDBLK', '0', 'ENDSEC',
+      '0', 'SECTION', '2', 'ENTITIES',
+      '0', 'INSERT', '8', '0', '2', 'ROT', '66', '1', '10', '0', '20', '0', ...rotulo, '0', 'SEQEND',
+      '0', 'INSERT', '8', '0', '2', 'SIM', '66', '1', '10', '100', '20', '0', ...at('PUNTO', '7'), ...at('COTA', '12.5'), '0', 'SEQEND',
+      '0', 'LINE', '8', 'APAGADA', '10', '0', '20', '50', '11', '9', '21', '50',
+      '0', 'LINE', '8', 'HELADA', '10', '0', '20', '60', '11', '9', '21', '60',
+      '0', 'ENDSEC', '0', 'EOF'].join('\n');
+    const r = leerDXF(t, 1), pts = r.objs.filter(o => o.t === 'p'), lin = r.objs.filter(o => o.t === 'l');
+    return { pts: pts.map(o => o.nom + '/' + o.z), lin: lin.length, tx: r.objs.filter(o => o.t === 'tx').length, apagadas: (r.saltados.find(x => /apagad/i.test(x.tipo)) || {}).n };
+  });
+  ok(blo.pts.join() === '7/12.5', 'el rótulo no se vuelve un punto, y el punto con símbolo sale una sola vez: ' + JSON.stringify(blo.pts));
+  ok(blo.lin === 2, 'la línea del rótulo y la del símbolo se dibujan; las de capas apagadas no: ' + blo.lin + ' líneas');
+  ok(blo.tx === 7, 'los 7 atributos del rótulo salen como texto: ' + blo.tx);
+  ok(blo.apagadas === 2, 'la revisión cuenta 2 objetos de capas apagadas o congeladas: ' + blo.apagadas);
 
   // ── v47: los 256 colores de AutoCAD entran con su color exacto y vuelven con su número ──
   const aci = await p.evaluate(() => {

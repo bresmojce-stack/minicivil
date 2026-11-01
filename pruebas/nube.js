@@ -1,7 +1,7 @@
 // Drive simulado con dos equipos (A en PC, B en celular): conectar, recibir, cambiar, borrar y que use SU ID de
 // cliente y SU carpeta "Mini Civil" (un archivo de TopoVías en el mismo Drive no se toca).
 //   node pruebas/nube.js [index.html]
-const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node22/lib/node_modules/playwright');
+const { chromium } = require(process.env.PLAYWRIGHT || require('path').join(__dirname, 'pw.js'));
 const path = require('path');
 const archivo = path.resolve(process.argv[2] || path.join(__dirname, '..', 'index.html'));
 const drive = { files: {}, n: 0 };
@@ -139,12 +139,20 @@ const proy = (id, nombre, n) => ({ id, nombre, creado: '', dibujos: [{ id: id * 
   await C.evaluate(() => nubeSincronizar(true)); await espera(C);
   e = await estado(C);
   ok(!e.proyectos.includes('Lote 4 (B)[3]'), '   papelera de Drive + Aceptar: se borra también del equipo');
+  // v64: el proyecto se cambia mientras se sube: lo último se queda en el proyecto, sin copias de sí mismo
+  await C.evaluate(() => { const l = HIST.actual.proyectos, x = l.map((v, i) => i === 0 ? { ...v, nombre: 'Editado 1' } : v); anotarHoras(l, x); HIST.crudo.proyectos(x); vaciarGuardado(); });
+  await C.evaluate(() => { const f = nubeSubir; nubeSubir = async (...a) => { const r = await f(...a); nubeSubir = f; const l = HIST.actual.proyectos, x = l.map(v => v.nombre === 'Editado 1' ? { ...v, nombre: 'Editado 2' } : v); HORAS[x.find(v => v.nombre === 'Editado 2').id] = Date.now() - 2000; HIST.crudo.proyectos(x); return r; }; });
+  await C.evaluate(() => nubeSincronizar(true)); await espera(C);
+  await C.waitForTimeout(4500); await espera(C); await C.evaluate(() => nubeSincronizar(true)); await espera(C);
+  e = await estado(C);
+  ok(e.proyectos.some(x => x.startsWith('Editado 2[')) && !e.proyectos.some(x => /Editado 1|Editado 2 \(/.test(x)), 'cambiar un proyecto mientras se sube: queda lo último y sin copias: ' + JSON.stringify(e.proyectos));
   // 10. un proyecto de más de 5 MB sube por sesión; uno de más de 50 000 objetos no se sube y se dice
   await C.evaluate(p => { const l = HIST.actual.proyectos, x = l.concat([p]); HIST.crudo.proyectos(x); vaciarGuardado(); }, { id: 91, nombre: 'Mediano', creado: '', dibujos: [{ id: 910, nombre: 'D', sig: 1, objs: Array.from({ length: 45000 }, (_, i) => ({ id: i, t: 'p', x: i, y: i, nom: 'P' + i, d: 'x'.repeat(100) })) }] });
   await C.evaluate(() => nubeSincronizar(true)); await espera(C);
   const fM = Object.values(drive.files).find(f => f.name === 'Proyecto - Mediano.json');
   ok(drive.sesiones === 1 && fM && fM.data.length > 4000000 && JSON.parse(fM.data).dibujos[0].objs.length === 45000, '10. el proyecto mediano (' + Math.round(((fM && fM.data) || '').length / 1048576) + ' MB) sube por sesión y entero');
   await C.evaluate(p => { const o = Array.from({ length: 50001 }, (_, i) => ({ id: i, t: 'p', x: i, y: i })); HIST.crudo.proyectos(HIST.actual.proyectos.concat([{ ...p, dibujos: [{ id: 920, nombre: 'D', sig: 1, objs: o }] }])); vaciarGuardado(); }, { id: 92, nombre: 'Enorme', creado: '' });
+  await C.waitForTimeout(1500);   // que termine de guardar: al terminar avisa "por subir"
   await C.evaluate(() => nubeSincronizar(true)); await espera(C);
   e = await estado(C);
   ok(!enMiniCivil().includes('Enorme') && /muy grande/.test(e.msg), '    el de más de 50 000 objetos no se sube y se avisa: ' + e.msg);

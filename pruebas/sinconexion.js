@@ -1,7 +1,7 @@
 // Modo sin conexión: con un servidor de verdad, la app se instala en caché (minicivil-vN), abre sin internet con
 // sus datos y no toca cachés de otras apps de la misma dirección (TopoVías).
 //   node pruebas/sinconexion.js [carpeta del repositorio]
-const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node22/lib/node_modules/playwright');
+const { chromium } = require(process.env.PLAYWRIGHT || require('path').join(__dirname, 'pw.js'));
 const path = require('path'), http = require('http'), fs = require('fs');
 (async () => {
   const raiz = path.resolve(process.argv[2] || path.join(__dirname, '..'));

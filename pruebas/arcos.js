@@ -3,7 +3,7 @@
 //   cuadrado de 10 con el lado 1 a curvatura 0.5 → radio 6.25, flecha 2.5,
 //   perímetro 100-10+... = 41.591190 m y área 100 + 6.25²(θ-sen θ)/2 = 117.472470 m² (θ = 4·atan(0.5)).
 //   node pruebas/arcos.js [index.html]        (W=390 para celular)
-const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node22/lib/node_modules/playwright');
+const { chromium } = require(process.env.PLAYWRIGHT || require('path').join(__dirname, 'pw.js'));
 const path = require('path');
 (async () => {
   const W = +(process.env.W || 1100), movil = W < 600;
@@ -124,6 +124,12 @@ const path = require('path');
   ok(/117\.47/.test(tArea), 'la herramienta Área da 117.472 m², igual que el panel de Elegir (antes daba 100 por medir la cuerda)');
 
   if (movil) ok(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'sin desplazamiento de lado en celular');
+  // v64: tocar descarta las curvas lejanas sin partirlas: da lo mismo que medir contra todos los trozos
+  const iguales = await p.evaluate(() => { let mal = 0; const o = { t: 'pl', c: true, v: [{ x: 0, y: 0, b: 0.5 }, { x: 10, y: 0, b: -1.5 }, { x: 10, y: 10 }, { x: 0, y: 10, b: 3 }] };
+    for (let i = 0; i < 400; i++) { const q = { x: -30 + i * 0.17, y: -20 + (i * 37 % 90) * 0.7 }; let d = Infinity; DIB.trazos(o).forEach(([a, b]) => { d = Math.min(d, DIB.dSeg(q, a, b)); });
+      if (Math.abs(DIB.dTrazos(o, q, Infinity) - d) > 1e-9) mal++; const t = DIB.dTrazos(o, q, 1); if (d <= 1 && Math.abs(t - d) > 1e-9) mal++; if (d > 1 && t <= 1) mal++; }
+    return mal; });
+  ok(iguales === 0, 'la distancia con descarte es la misma que contra todos los trozos (' + iguales + ' diferencias en 400 puntos)');
   ok(!errs.length, 'sin errores' + (errs.length ? ': ' + errs.join(' | ') : ''));
   await b.close();
   console.log(fallas ? fallas + ' falla(s).' : 'Todo bien (arcos ' + (movil ? 'celular' : 'PC') + ').');

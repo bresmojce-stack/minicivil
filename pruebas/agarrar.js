@@ -1,7 +1,7 @@
 // v34: agarrar un objeto por la esquina que uno escoja, llevarlo moviendo la pantalla y soltarlo donde sea.
 // El caso de Brian: pegar las secciones en el dibujo y moverlas lejos con el dedo.
 //   node pruebas/agarrar.js [index.html]        (W=390 para celular)
-const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node22/lib/node_modules/playwright');
+const { chromium } = require(process.env.PLAYWRIGHT || require('path').join(__dirname, 'pw.js'));
 const path = require('path');
 (async () => {
   const W = +(process.env.W || 1100), movil = W < 600;
