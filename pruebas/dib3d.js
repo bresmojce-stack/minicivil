@@ -16,7 +16,7 @@ const path = require('path');
   const objs = []; let n = 1;
   for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) objs.push({ id: n, t: 'p', x: 1000000 + i * 10, y: 900000 + j * 10, z: 1500 + i + j * 0.5, nom: String(n++), d: 'TN' });
   await p.evaluate(v => { localStorage.clear(); localStorage.setItem('minicivil', JSON.stringify(v));
-    localStorage.setItem('minicivil__t', String(Date.now() + 99999)); localStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'dibujo' })); },
+    localStorage.setItem('minicivil__t', String(Date.now() + 99999)); sessionStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'dibujo' })); },
     [{ id: 1, nombre: 'Z', creado: '', dibujos: [{ id: 2, nombre: 'Lev', sig: 10, objs }] }]);
   await p.reload(); await p.waitForSelector('.tv-dib-svg'); await p.waitForTimeout(500);
 
@@ -27,7 +27,7 @@ const path = require('path');
   ok(!barra.header && barra.enFila >= 2, 'dentro del Dibujo no hay barra de arriba y sus botones están en la fila del dibujo (' + barra.enFila + ')');
   await p.evaluate(() => { document.querySelector('.mc-volver').click(); }); await p.waitForTimeout(300);
   ok(!!(await p.$('header.tv-header')) && !!(await p.$('.tv-brand')), 'en la pantalla de inicio la barra con el logo sigue estando');
-  await p.evaluate(v => { localStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'dibujo' })); }, 0);
+  await p.evaluate(v => { sessionStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'dibujo' })); }, 0);
   await p.reload(); await p.waitForSelector('.tv-dib-svg'); await p.waitForTimeout(400);
 
   const estado = () => p.evaluate(() => { vaciarGuardado();

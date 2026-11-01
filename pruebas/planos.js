@@ -151,7 +151,7 @@ const DB = {
 
   // en pantalla: el texto con tamaño escala con el zoom y gira
   await p.evaluate(v => { localStorage.clear(); localStorage.setItem('minicivil', JSON.stringify(v)); localStorage.setItem('minicivil__t', String(Date.now() + 99999));
-    localStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'dibujo' })); },
+    sessionStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'dibujo' })); },
     [{ id: 1, nombre: 'P', creado: '', dibujos: [{ id: 2, nombre: 'd', sig: 1, objs: [{ id: 1, t: 'tx', p: { x: 0, y: 0 }, s: 'PLANO', h: 2, rot: Math.PI / 2, al: 'cm' }, { id: 2, t: 'l', a: { x: -20, y: -20 }, b: { x: 20, y: 20 } }] }] }]);
   await p.reload(); await p.waitForSelector('.tv-dib-svg'); await p.waitForTimeout(500);
   await p.click('.mc-rapida [data-accion=todo]'); await p.waitForTimeout(500);

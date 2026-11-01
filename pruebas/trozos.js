@@ -10,7 +10,7 @@ const path = require('path'), http = require('http'), fs = require('fs');
     const ruta = path.join(raiz, f); if (!ruta.startsWith(raiz) || !fs.existsSync(ruta) || fs.statSync(ruta).isDirectory()) { r.writeHead(404); return r.end(); }
     r.writeHead(200, { 'Content-Type': tipos[path.extname(ruta)] || 'application/octet-stream' }); fs.createReadStream(ruta).pipe(r); });
   await new Promise(ok => srv.listen(0, ok));
-  const b = await chromium.launch(); const p = await b.newPage(); const errs = []; p.on('pageerror', e => errs.push(e.message));
+  const b = await chromium.launch(); const p = await (await b.newContext()).newPage(); const errs = []; p.on('pageerror', e => errs.push(e.message));
   let fallas = 0; const ok = (bien, t) => { console.log((bien ? 'bien  ' : 'FALLA ') + t); if (!bien) fallas++; };
   await p.goto('http://localhost:' + srv.address().port + '/minicivil/'); await p.waitForSelector('header.tv-header');
 
@@ -36,9 +36,16 @@ const path = require('path'), http = require('http'), fs = require('fs');
 
   await p.evaluate(async () => { await TVDB.set(TV_KEY + '__t', Date.now() + 1e6); try { localStorage.removeItem(TV_KEY); } catch (_) {} });
   await p.reload(); await p.waitForSelector('header.tv-header');
-  const r2 = await p.evaluate(() => { const v = DATOS.valores[TV_KEY], d = v[0].dibujos[0];
+  // v61: al abrir la app el plano NO se arma (queda su registro con las claves y cuántos objetos); se arma al abrir el proyecto
+  const r2a = await p.evaluate(async () => { const d = DATOS.valores[TV_KEY][0].dibujos[0], n0 = (await TVDB.claves()).filter(c => String(c).includes('__trozo')).length;
+    await guardarProyectosIdb(TV_KEY, DATOS.valores[TV_KEY].concat([{ id: 'otro', nombre: 'Otro', creado: 1, dibujos: [] }]));   // se guarda otro cambio sin abrir el plano
+    const n1 = (await TVDB.claves()).filter(c => String(c).includes('__trozo')).length;
+    return { stub: Array.isArray(d.__trozos) && !d.objs, n: d.__n, n0, n1, inicio: !!document.querySelector('.mc-abrir-archivo') }; });
+  ok(r2a.stub && r2a.n === 60001 && r2a.inicio, 'al abrir la app se ve el inicio y el plano no se arma (' + JSON.stringify(r2a) + ')');
+  ok(r2a.n0 === 13 && r2a.n1 === 13, 'guardar otro cambio sin abrir el plano no borra sus pedazos (' + r2a.n0 + ' → ' + r2a.n1 + ')');
+  const r2 = await p.evaluate(async () => { const armar = async () => { const v = DATOS.valores[TV_KEY]; for (let i = 0; i < v.length; i++) if (sinArmar(v[i])) v[i] = { ...v[i], dibujos: await armarProyecto(v[i]) }; return v; }; const v = await armar(), d = v[0].dibujos[0];
     return { n: d.objs.length, ult: d.objs[d.objs.length - 1].id, primero: d.objs[0].a.x, sinTrozos: !('__trozos' in d), chico: v[0].dibujos[1].objs.length }; });
-  ok(r2.n === 60001 && r2.ult === 'nuevo' && r2.primero === 0 && r2.sinTrozos && r2.chico === 1, 'al abrir se arma igual (60 001 objetos, en orden)');
+  ok(r2.n === 60001 && r2.ult === 'nuevo' && r2.primero === 0 && r2.sinTrozos && r2.chico === 1, 'al abrir el proyecto se arma igual (60 001 objetos, en orden)');
 
   const r3 = await p.evaluate(async () => { const v = DATOS.valores[TV_KEY];
     await guardarProyectosIdb(TV_KEY, [{ ...v[0], dibujos: [v[0].dibujos[1]] }]);
@@ -59,8 +66,12 @@ const path = require('path'), http = require('http'), fs = require('fs');
     const ks = (await TVDB.claves()).filter(c => String(c).includes('__trozo')); await TVDB.del(ks[2]);
     try { localStorage.setItem(TV_KEY + '__soloIdb', '1'); localStorage.removeItem(TV_KEY); } catch (_) {} });
   await p.reload(); await p.waitForSelector('header.tv-header');
-  const r5 = await p.evaluate(() => ({ idb: DATOS.idb, noEscribir: !!(DATOS.noEscribir && DATOS.noEscribir[TV_KEY]) }));
-  ok(r5.idb === false && r5.noEscribir, 'si falta un pedazo no se carga a medias ni se escribe encima');
+  // v61: la app abre igual (el plano no se arma al entrar); al abrir el proyecto lo dice y no escribe encima
+  await p.evaluate(() => document.querySelector('.mc-proyecto').click()); await p.waitForSelector('.mc-armar-error', { timeout: 20000 });
+  const r5 = await p.evaluate(async () => { await new Promise(r => setTimeout(r, 700)); const reg = await TVDB.get(TV_KEY);
+    return { error: document.querySelector('.mc-armar-error').textContent, intacto: Array.isArray(reg[0].dibujos[0].__trozos) && reg[0].dibujos[0].__trozos.length === 6 }; });
+  ok(/Falta un pedazo/.test(r5.error) && r5.intacto, 'si falta un pedazo, al abrir el proyecto lo dice y no escribe encima (' + JSON.stringify(r5) + ')');
+  await p.evaluate(() => localStorage.removeItem(TV_KEY + '__soloIdb'));
 
   // un pedazo huérfano (de una escritura cortada al recargar) se borra en la próxima escritura después de abrir (precargarDatos)
   await p.evaluate(async () => { for (const c of await TVDB.claves()) await TVDB.del(c); localStorage.clear(); localStorage.setItem(TV_KEY + '__soloIdb', '1');
@@ -78,7 +89,7 @@ const path = require('path'), http = require('http'), fs = require('fs');
     await guardarProyectosIdb(TV_KEY, [{ id: 'P', nombre: 'Polis', creado: 1, dibujos: [{ id: 'D', nombre: 'd', objs }] }]); await TVDB.set(TV_KEY + '__t', Date.now() + 4e6);
     localStorage.setItem('__orig', window.__orig); });
   await p.reload(); await p.waitForSelector('header.tv-header');
-  const r7 = await p.evaluate(() => { const o = DATOS.valores[TV_KEY][0].dibujos[0].objs, d = Object.getOwnPropertyDescriptor(o[3], 'v');
+  const r7 = await p.evaluate(async () => { const armar = async () => { const v = DATOS.valores[TV_KEY]; for (let i = 0; i < v.length; i++) if (sinArmar(v[i])) v[i] = { ...v[i], dibujos: await armarProyecto(v[i]) }; return v; }; const o = (await armar())[0].dibujos[0].objs, d = Object.getOwnPropertyDescriptor(o[3], 'v');
     const igual = JSON.stringify(o) === localStorage.getItem('__orig'), c = { ...o[3], col: '#000' }, sc = structuredClone(o[5]);
     return { compacto: !!(d && d.get) && o[3].__vf instanceof Float64Array, igual, copia: Array.isArray(c.v) && c.v[2].b === 0.25 && c.v[1].z === 10.5 && !('__vf' in c),
       clon: Array.isArray(sc.v) && sc.v.length === 4 && sc.v[3].z === 0 && sc.v[3].b === -1, area: Math.abs(DIB.areaObj(o[0]) - DIB.areaObj(JSON.parse(localStorage.getItem('__orig'))[0])) < 1e-12 }; });
@@ -87,9 +98,16 @@ const path = require('path'), http = require('http'), fs = require('fs');
   await p.evaluate(async () => { TROZOS.porPrimero = new Map(); await guardarProyectosIdb(TV_KEY, DATOS.valores[TV_KEY]); await TVDB.set(TV_KEY + '__t', Date.now() + 5e6); });
   const pz = await p.evaluate(async () => { const c = (await TVDB.get(TV_KEY))[0].dibujos[0].__trozos[0], t = await TVDB.get(c); return { cv: !!(t[3].__cv && t[3].__cv.f instanceof Float64Array), sinV: !('v' in t[3]) }; });
   await p.reload(); await p.waitForSelector('header.tv-header');
-  const r8 = await p.evaluate(() => { const o = DATOS.valores[TV_KEY][0].dibujos[0].objs; return { n: o.length, igual: JSON.stringify(o) === localStorage.getItem('__orig'), compacto: o[3].__vf instanceof Float64Array }; });
+  const r8 = await p.evaluate(async () => { const armar = async () => { const v = DATOS.valores[TV_KEY]; for (let i = 0; i < v.length; i++) if (sinArmar(v[i])) v[i] = { ...v[i], dibujos: await armarProyecto(v[i]) }; return v; }; const o = (await armar())[0].dibujos[0].objs; return { n: o.length, igual: JSON.stringify(o) === localStorage.getItem('__orig'), compacto: o[3].__vf instanceof Float64Array }; });
   ok(pz.cv && pz.sinV && r8.igual && r8.compacto && r8.n === 25000, 'guardado otra vez: los pedazos van con sus listas de números y abre idéntico (' + JSON.stringify({ ...pz, ...r8 }) + ')');
 
+  // v61: con un proyecto abierto, cerrar la app y volver a entrar (otra pestaña, misma memoria del equipo) arranca en el inicio
+  await p.evaluate(() => document.querySelector('.mc-proyecto').click()); await p.waitForTimeout(800);
+  const dentro = await p.evaluate(() => !document.querySelector('.mc-abrir-archivo'));
+  const p2 = await p.context().newPage(); await p2.goto(p.url()); await p2.waitForSelector('header.tv-header');
+  const inicio = await p2.evaluate(() => !!document.querySelector('.mc-abrir-archivo') && !document.querySelector('.tv-dib-svg'));
+  await p2.close();
+  ok(dentro && inicio, 'cerrar con un proyecto abierto y volver a entrar arranca en el inicio (dentro: ' + dentro + ', inicio: ' + inicio + ')');
   ok(!errs.length, 'sin errores en la página' + (errs.length ? ': ' + errs.join(' | ') : ''));
   await b.close(); srv.close();
   console.log(fallas ? fallas + ' falla(s).' : 'Todo bien.'); process.exit(fallas ? 1 : 0);

@@ -17,7 +17,7 @@ const path = require('path');
     await p.evaluate(o => { localStorage.clear();
       localStorage.setItem('minicivil', JSON.stringify([{ id: 1, nombre: 'Z', creado: '', dibujos: [{ id: 2, nombre: 'd', sig: 1, objs: o }] }]));
       localStorage.setItem('minicivil__t', String(Date.now() + 99999));
-      localStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'dibujo' })); }, objs);
+      sessionStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'dibujo' })); }, objs);
     await p.reload(); await p.waitForSelector('.tv-dib-svg'); await p.waitForTimeout(500);
     await p.click('.mc-rapida [data-accion=todo]'); await p.waitForTimeout(450);
   };

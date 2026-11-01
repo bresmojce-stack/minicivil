@@ -15,7 +15,7 @@ const path = require('path');
   for (let i = 0; i <= 4; i++) for (let j = 0; j <= 4; j++) objs.push({ id: n, t: 'p', x: i * 20, y: j * 20, z: 100 + i, nom: String(n++), d: 'TN' });
   const proy = [{ id: 1, nombre: 'P', creado: '', dibujos: [{ id: 2, nombre: 'd', sig: 30, objs }],
     superficies: [{ id: 111, nombre: 'Terreno', fuente: { tipo: 'desc', descs: ['TN'] }, color: '#16A34A', curvas: '1' }] }];
-  const ir = async tab => { await p.evaluate(t => localStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: t })), tab); await p.reload(); await p.waitForTimeout(700); };
+  const ir = async tab => { await p.evaluate(t => sessionStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: t })), tab); await p.reload(); await p.waitForTimeout(700); };
   await p.evaluate(v => { localStorage.clear(); localStorage.setItem('minicivil', JSON.stringify(v)); localStorage.setItem('minicivil__t', String(Date.now() + 99999)); }, proy);
   const nObjs = () => p.evaluate(() => HIST.actual.proyectos[0].dibujos[0].objs.length);
 

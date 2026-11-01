@@ -32,7 +32,7 @@ const WGPU = !!process.env.WEBGPU, MOTOR = WGPU ? 'webgpu' : 'webgl';
   // `mira`: punto del terreno que queda bajo el ratón al acercar; `rueda`: cuánto se gira (cada vez)
   const imagen = async (lista, sinGL, mira, veces, rueda) => {
     await p.evaluate(o => { localStorage.clear(); localStorage.setItem('minicivil', JSON.stringify([{ id: 1, nombre: 'Z', creado: '', dibujos: [{ id: 2, nombre: 'd', sig: 1, objs: o }] }]));
-      localStorage.setItem('minicivil__t', String(Date.now() + 99999)); localStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'dibujo' })); }, lista);
+      localStorage.setItem('minicivil__t', String(Date.now() + 99999)); sessionStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'dibujo' })); }, lista);
     await p.reload(); await p.waitForSelector('.tv-dib-svg'); if (sinGL) await p.evaluate(() => { window.MC_SIN_GL = true; });
     await p.click('.mc-rapida [data-accion=todo]'); await p.waitForTimeout(300);
     const bx = await (await p.$('.tv-dib-fondo')).boundingBox();
@@ -104,7 +104,7 @@ const WGPU = !!process.env.WEBGPU, MOTOR = WGPU ? 'webgpu' : 'webgl';
   const sp = []; for (let i = 0; i < 70; i++) for (let j = 0; j < 70; j++) sp.push({ id: 1000 + i * 70 + j, t: 'p', x: 1e6 + i * 10, y: 9e5 + j * 10, z: 100 + i * 0.1 + j * 0.05, d: 'TN' });
   await p.evaluate(o => { localStorage.clear(); localStorage.setItem('minicivil', JSON.stringify([{ id: 1, nombre: 'S', creado: '', dibujos: [{ id: 2, nombre: 'Lev', sig: 9999, objs: o }],
     superficies: [{ id: 111, nombre: 'Terreno', fuente: { tipo: 'desc', descs: ['TN'] }, color: '#16A34A', curvas: '' }] }]));
-    localStorage.setItem('minicivil__t', String(Date.now() + 99999)); localStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'superficies' }));
+    localStorage.setItem('minicivil__t', String(Date.now() + 99999)); sessionStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'superficies' }));
     localStorage.setItem('minicivil_supvista', JSON.stringify('editar')); }, sp);
   await p.reload(); await p.waitForSelector('.tv-dib-svg'); await p.waitForTimeout(800);
   { const bx = await (await p.$('.tv-dib-fondo')).boundingBox(), c = await p.evaluate(() => MC_DIB.aP({ x: 1e6 + 345, y: 9e5 + 345 }));

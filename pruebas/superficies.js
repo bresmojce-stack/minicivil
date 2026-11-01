@@ -90,7 +90,7 @@ const path = require('path');
   // ── 2. en pantalla ──
   const objs = []; for (let i = 0; i <= 10; i++) for (let j = 0; j <= 10; j++) objs.push({ id: i * 100 + j, t: 'p', x: 1000000 + i * 2, y: 900000 + j * 2, nom: String(i * 11 + j + 1), z: 100 + 0.1 * i * 2 + 0.05 * j * 2, d: 'TN' });
   const proyecto = [{ id: 1, nombre: 'Lote 4', creado: '', dibujos: [{ id: 2, nombre: 'Levantamiento', sig: 1, objs }] }];
-  await p.evaluate(v => { localStorage.clear(); localStorage.setItem('minicivil', JSON.stringify(v)); localStorage.setItem('minicivil__t', String(Date.now() + 99999)); localStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'superficies' })); indexedDB.deleteDatabase('minicivil'); }, proyecto);
+  await p.evaluate(v => { localStorage.clear(); localStorage.setItem('minicivil', JSON.stringify(v)); localStorage.setItem('minicivil__t', String(Date.now() + 99999)); sessionStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'superficies' })); indexedDB.deleteDatabase('minicivil'); }, proyecto);
   await p.reload(); await p.waitForSelector('.mc-superficies'); await p.waitForTimeout(300);
   ok((await p.textContent('.mc-superficies')).includes('121 puntos con cota'), 'sin superficies: explica cómo crear la primera');
   await p.click('button:has-text("Nueva superficie")');
@@ -143,7 +143,7 @@ const path = require('path');
   o3.push({ id: 'eje', t: 'eje', v: [{ x: 1000000.5, y: 900010 }, { x: 1000019.5, y: 900010 }], abs0: 100, paso: 10, nom: 'Eje' });
   const proy3 = [{ id: 1, nombre: 'Plataforma', creado: '', dibujos: [{ id: 2, nombre: 'Lev', sig: 1, objs: o3 }],
     superficies: [{ id: 111, nombre: 'Terreno natural', fuente: { tipo: 'desc', descs: ['TN'] }, color: '#16A34A', textura: 'puntos', curvas: '' }, { id: 222, nombre: 'Subrasante', fuente: { tipo: 'desc', descs: ['SR'] }, color: '#64748B', textura: 'cuadros', curvas: '' }] }];
-  await p.evaluate(v => { localStorage.clear(); localStorage.setItem('minicivil', JSON.stringify(v)); localStorage.setItem('minicivil__t', String(Date.now() + 99999)); localStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'secciones' })); }, proy3);
+  await p.evaluate(v => { localStorage.clear(); localStorage.setItem('minicivil', JSON.stringify(v)); localStorage.setItem('minicivil__t', String(Date.now() + 99999)); sessionStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'secciones' })); }, proy3);
   await p.reload(); await p.waitForSelector('.mc-secciones'); await p.waitForTimeout(200);
   await p.selectOption('.mc-secc-linea', { index: 1 }); await p.waitForTimeout(200);
   await p.click('.mc-secciones button:has-text("5 m")'); await p.fill('.mc-secc-izq', '4'); await p.fill('.mc-secc-der', '4'); await p.waitForTimeout(300);

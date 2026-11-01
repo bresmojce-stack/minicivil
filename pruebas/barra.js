@@ -13,7 +13,7 @@ const path = require('path');
   const proy = [{ id: 1, nombre: 'P', creado: '', dibujos: [{ id: 2, nombre: 'd', sig: 1, objs: [{ id: 9, t: 'p', x: 0, y: 0, z: 1, d: 'TN' }, { id: 8, t: 'p', x: 30, y: 40, z: 2, d: 'TN' }, { id: 7, t: 'p', x: 40, y: 0, z: 3, d: 'TN' }] }],
     superficies: [{ id: 111, nombre: 'Terreno', fuente: { tipo: 'desc', descs: ['TN'] }, color: '#16A34A', curvas: '1' }] }];
   await p.evaluate(v => { localStorage.clear(); localStorage.setItem('minicivil', JSON.stringify(v)); localStorage.setItem('minicivil__t', String(Date.now() + 99999));
-    localStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'dibujo' })); }, proy);
+    sessionStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'dibujo' })); }, proy);
   await p.reload(); await p.waitForSelector('.tv-dib-svg'); await p.waitForTimeout(500);
   const grupo = async g => { await p.click(`.tv-dib-nav button[data-grupo=${g}]`); await p.waitForTimeout(120);
     const l = await p.$$eval('.tv-dib-hoja button[data-herr]', bs => bs.map(x => x.dataset.herr)); await p.click(`.tv-dib-nav button[data-grupo=${g}]`); return l; };
@@ -56,7 +56,7 @@ const path = require('path');
   ok(await p.evaluate(() => document.documentElement.getAttribute('data-tema')) === 'oscuro', 'el tema se cambia en el menú ⋯');
   // v39: la superficie se edita en su pestaña
   ok(!grupos.includes('superficie') && !(await p.$('.mc-modo')), 'el Dibujo ya no tiene el grupo Superficie ni el 2D | 3D');
-  const irA = async (tab, v) => { await p.evaluate(([t, v]) => { localStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: t })); if (v) localStorage.setItem('minicivil_supvista', JSON.stringify(v)); }, [tab, v]); await p.reload(); await p.waitForTimeout(700); };
+  const irA = async (tab, v) => { await p.evaluate(([t, v]) => { sessionStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: t })); if (v) localStorage.setItem('minicivil_supvista', JSON.stringify(v)); }, [tab, v]); await p.reload(); await p.waitForTimeout(700); };
   await irA('superficies', 'editar');
   const gs = await p.$$eval('.tv-dib-nav button[data-grupo]', bs => bs.map(x => x.dataset.grupo));
   ok(gs.join() === 'superficie,dibujar' && /QUITAR TRIÁNGULO/.test(await p.textContent('.tv-dib-cmd')), 'Superficies → Editar: grupos Triángulos y Dibujar, y arranca en Quitar triángulo');

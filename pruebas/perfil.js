@@ -23,7 +23,7 @@ const path = require('path');
       { id: 222, nombre: 'Subrasante', fuente: { tipo: 'desc', descs: ['SR'] }, color: '#B45309', curvas: '' }],
     secciones: { linea: { dibId: 2, objId: 'eje' }, paso: '20', izq: '10', der: '10', arriba: 111, abajo: 222 } }];
   await p.evaluate(v => { localStorage.clear(); localStorage.setItem('minicivil', JSON.stringify(v)); localStorage.setItem('minicivil__t', String(Date.now() + 99999));
-    localStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'secciones' })); }, proy);
+    sessionStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'secciones' })); }, proy);
   await p.reload(); await p.waitForSelector('.mc-perfil'); await p.waitForTimeout(500);
 
   // ── 1. el cálculo, con números que se pueden comprobar a mano ──

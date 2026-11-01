@@ -51,7 +51,7 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 
 ## Al publicar (solo cuando Brian lo autorice)
 - Subir `TV_VERSION` en index.html, `CACHE_VERSION` en sw.js (ej. "2" y "minicivil-v2") y la versión del
-  `<title>` (hoy "Mini Civil v60").
+  `<title>` (hoy "Mini Civil v61").
 - `node pruebas/sintaxis.js` (sintaxis de cada `<script>` y versión igual en los dos archivos; corre también en
   GitHub en cada push a `main`, `.github/workflows/sintaxis.yml`).
 - Batería completa: `node pruebas/correr.js` (54 pruebas en PC, celular y tablet, también sin conexión con servidor real; `SOLO=nombre` corre algunas). Rápidas: `node pruebas/abrir.js` y `W=390 node pruebas/abrir.js` (PC y celular); `node pruebas/importar.js` si se tocaron los puntos o el DXF; `node pruebas/nube.js` si se tocó Drive o los datos.
@@ -76,6 +76,15 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 | PROYECTOS (Mini Civil) | **Espacio en el celular (v26)**: en la pestaña Dibujo no se dibuja `mc-barra-proy`; el botón de volver (`mc-volver`, solo la flecha) y `tv-acciones` (tema, Drive, guardado) van dentro de la fila del dibujo (`mc-barra-dib`), que `App` le pasa a `TabDibujo` en el prop `cabecera`. En las otras pestañas la fila sigue igual. En el Dibujo, nuevo/renombrar/duplicar/borrar/importar/tabla/DXF se fueron al menú `⋯` (`mc-mas`, panel `tv-dib-mas`, botones `mc-mas-*`), y la franja de comando `tv-dib-cmd` flota sobre el lienzo (`position: absolute`, ancho al contenido, `pointer-events: none` salvo en sus botones por la regla del `<style>`; se parte en varias líneas si hay muchos botones). El lienzo pasa de 479 a 601 px en el celular (del 57 % al 71 % de la pantalla). `proyectoNuevo` (`{ id, nombre, creado, dibujos }`), `useLocalProyectos` (guarda en `TV_KEY`, con deshacer), `copiaDeProyectos` (para `FalloApp`), `Logo`, `TarjetaNube`, `PantallaProyectos`, `App` (inicio = lista de proyectos; proyecto = pestañas `nav.tab`: Dibujo, Superficies…; desde la v22, dentro de un proyecto NO se dibuja la barra `tv-header`: el tema, Drive y el estado de guardado van en la fila del proyecto `mc-barra-proy`, y `tv-main` lleva `mc-sin-barra` para el margen de la franja de estado del celular. En el inicio la barra con el logo sigue), `FalloApp`, arranque y aviso de versión nueva |
 
 ## Estado y lo que sigue
+- Versión 61 (2026-11-01, Brian: "si salgo, que vaya a la página principal; está demorando mucho para poder ingresar"; publicada
+  sin batería completa por pedido suyo). (1) **Arranca en el inicio**: `nav` se guarda en `sessionStorage` (`minicivil_nav`), que
+  se borra al cerrar la app: una recarga vuelve al mismo sitio, salir y entrar no. Las pruebas ponen `sessionStorage` (antes
+  `localStorage`). (2) **Cada plano se arma al abrir su proyecto**: `precargarDatos` ya no llama `juntarTrozos`; el dibujo queda
+  `{ …, __trozos, __n }` (`sinArmar`, `nObjsDib`). Al abrirlo, `App` muestra "Abriendo plano… %" (`mc-armando`, error en
+  `mc-armar-error`) y `armarProyecto` lo arma desde los pedazos (compacto, deja `TROZOS.porPrimero` para no reescribirlos) y lo
+  pone con `HIST.crudo` (también en las fotos de Deshacer). Lo no armado: `siguienteTrozado` lo pasa tal cual y no borra sus
+  pedazos; Drive no lo toca; la copia automática lo lleva sin objetos (`sinCopia`); duplicar lo arma primero. Medido en la nube con
+  el UBE1901 guardado: entrar 10,9 s (abría el plano) → 0,2 s (inicio). Prueba en `trozos.js` (ahora con `newContext`).
 - Versión 60 (2026-10-26, medición de la PC sobre la v59: "los números y cotas de los puntos que vienen de bloques con atributos
   ya no salen en las hojas"). En `leerDXFPasos`, `deAtributos` (WeakSet) marca los puntos que salen de un INSERT con ATTRIB (también
   su copia pasada al papel en cada ventana); al cerrar cada presentación, un POINT suelto queda sin `nom`, `z` ni `d` (en AutoCAD no

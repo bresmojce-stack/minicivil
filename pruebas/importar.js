@@ -56,7 +56,7 @@ const path = require('path'), fs = require('fs'), os = require('os');
 
   // ── 2. en pantalla ──
   const dibujo = [{ id: 1, nombre: 'Lote 4', creado: '', dibujos: [{ id: 2, nombre: 'Levantamiento', sig: 2, objs: [{ id: 3, t: 'p', x: 1990, y: 990, nom: 'P1' }] }] }];
-  await p.evaluate(v => { localStorage.clear(); localStorage.setItem('minicivil', JSON.stringify(v)); localStorage.setItem('minicivil__t', String(Date.now() + 99999)); localStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1 })); indexedDB.deleteDatabase('minicivil'); }, dibujo);
+  await p.evaluate(v => { localStorage.clear(); localStorage.setItem('minicivil', JSON.stringify(v)); localStorage.setItem('minicivil__t', String(Date.now() + 99999)); sessionStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1 })); indexedDB.deleteDatabase('minicivil'); }, dibujo);
   await p.reload(); await p.waitForSelector('.tv-dib-svg'); await p.waitForTimeout(300);
   await p.click('.mc-mas'); await p.waitForTimeout(250);   // v26: "Importar puntos" está en el menú "⋯"
   await p.click('.mc-mas-importar'); await p.waitForTimeout(150);

@@ -16,7 +16,7 @@ const path = require('path');
   const abrir = async (p, lista) => {
     p.on('pageerror', e => errs.push(e.message));
     await p.goto('file://' + archivo); await p.waitForSelector('header.tv-header');
-    await p.evaluate(v => { localStorage.clear(); localStorage.setItem('minicivil', JSON.stringify(v)); localStorage.setItem('minicivil__t', String(Date.now() + 99999)); localStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'dibujo' })); },
+    await p.evaluate(v => { localStorage.clear(); localStorage.setItem('minicivil', JSON.stringify(v)); localStorage.setItem('minicivil__t', String(Date.now() + 99999)); sessionStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'dibujo' })); },
       [{ id: 1, nombre: 'Z', creado: '', dibujos: [{ id: 2, nombre: 'Lev', sig: 26, objs: lista }] }]);
     await p.reload(); await p.waitForSelector('.tv-dib-svg'); await p.waitForTimeout(400);
   };

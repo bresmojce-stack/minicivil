@@ -11,7 +11,7 @@ const path = require('path');
   await p.goto('file://' + archivo); await p.waitForSelector('header.tv-header');
   const abrir = async objs => {
     await p.evaluate(o => { localStorage.clear(); localStorage.setItem('minicivil', JSON.stringify([{ id: 1, nombre: 'V', creado: '', dibujos: [{ id: 2, nombre: 'd', sig: 1, objs: o }] }]));
-      localStorage.setItem('minicivil__t', String(Date.now() + 99999)); localStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'dibujo' })); }, objs);
+      localStorage.setItem('minicivil__t', String(Date.now() + 99999)); sessionStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'dibujo' })); }, objs);
     await p.reload(); await p.waitForSelector('.tv-dib-svg'); await p.waitForTimeout(400);
     await p.evaluate(() => { window.__avisos = []; window.addEventListener('tv-aviso', e => window.__avisos.push(e.detail)); });
     await p.click('.mc-rapida [data-accion=todo]'); await p.waitForTimeout(400);
@@ -32,7 +32,7 @@ const path = require('path');
   ok(!(await p.$('.mc-pestanas-dib')), 'sin presentaciones no hay pestañas abajo');
   const lam = n => ({ id: 10 + n, nombre: 'VIAL ' + n + ' · presentación', sig: 1, objs: [{ id: 'm' + n, t: 'l', a: { x: 0, y: 0 }, b: { x: 0.4 * n, y: 0.3 } }] });
   const conPres = async tab => { await p.evaluate(([o, l, tab]) => { localStorage.setItem('minicivil', JSON.stringify([{ id: 1, nombre: 'V', creado: '', dibujos: [{ id: 2, nombre: 'Plano', sig: 1, objs: o }].concat(l) }]));
-      localStorage.setItem('minicivil__t', String(Date.now() + 199999)); localStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab })); }, [grupo, [lam(1), lam(2)], tab]);
+      localStorage.setItem('minicivil__t', String(Date.now() + 199999)); sessionStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab })); }, [grupo, [lam(1), lam(2)], tab]);
     await p.reload(); await p.waitForTimeout(500); };
   await conPres('dibujo'); await p.waitForSelector('.tv-dib-svg');
   const opDib = await p.$$eval('.mc-barra-dib select option', os => os.map(o => o.textContent));

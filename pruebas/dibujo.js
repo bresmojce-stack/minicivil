@@ -14,7 +14,7 @@ const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node22/lib/node_mod
   const pr = { id: 1, obraId: 5, nombre: "Via 1", absInicio: "0", tramos: [T()], intermedias: [], capas: [{nombre:"base",espesor:"0.15",id:1}], sobreancho:{izq:"",der:""}, lateralIzq: lat, lateralDer: lat, parqueaderos: [], bmEstaciones: [], coordsEje: [], coordsIzq: [], coordsDer: [], nivelaciones: [], volumenes: [] };
   await p.evaluate(pr => { localStorage.clear(); localStorage.setItem('minicivil', JSON.stringify([pr])); localStorage.setItem('minicivil__t', String(Date.now()+99999));
     localStorage.setItem('minicivil_obras', JSON.stringify([{id:5,nombre:'Carambolo'}])); localStorage.setItem('minicivil_obras__t', String(Date.now()+99999));
-    localStorage.setItem('minicivil_activo', '1'); localStorage.setItem('minicivil_nav', JSON.stringify({vista:'proyecto',id:1})); }, pr);
+    localStorage.setItem('minicivil_activo', '1'); sessionStorage.setItem('minicivil_nav', JSON.stringify({vista:'proyecto',id:1})); }, pr);
   await p.reload(); await p.waitForSelector('.tv-main'); await p.waitForTimeout(300);   // dentro de un proyecto ya no hay barra de arriba (v22)
   const guardado = () => p.evaluate(() => (typeof vaciarGuardado === 'function' && vaciarGuardado(), JSON.parse(localStorage.getItem('minicivil'))[0].dibujos || []));
   const objs = async () => (await guardado())[0].objs;

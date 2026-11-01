@@ -46,7 +46,7 @@ const path = require('path');
   // ── 2. en pantalla: dibujar una línea pegándose perpendicular a otra ──
   await p.evaluate(v => { localStorage.clear(); localStorage.setItem('minicivil', JSON.stringify(v));
     localStorage.setItem('minicivil__t', String(Date.now() + 99999));
-    localStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'dibujo' })); },
+    sessionStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'dibujo' })); },
     [{ id: 1, nombre: 'Z', creado: '', dibujos: [{ id: 2, nombre: 'd', sig: 9, objs: [{ id: 1, t: 'l', a: { x: 0, y: 0 }, b: { x: 100, y: 0 } },
       { id: 2, t: 'p', x: -10, y: 50, nom: 'A' }, { id: 3, t: 'p', x: 110, y: -10, nom: 'B' }] }] }]);
   await p.reload(); await p.waitForSelector('.tv-dib-svg'); await p.waitForTimeout(500);

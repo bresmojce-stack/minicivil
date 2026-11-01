@@ -23,7 +23,7 @@ const path = require('path');
     superficies: [{ id: 111, nombre: 'Terreno', fuente: { tipo: 'desc', descs: ['TN'] }, color: '#16A34A', curvas: '1' },
       { id: 222, nombre: 'Subrasante', fuente: { tipo: 'desc', descs: ['SR'] }, color: '#B45309', curvas: '' }],
     secciones: { linea: { dibId: 2, objId: 'eje' }, paso: '20', izq: '10', der: '10', arriba: 111, abajo: 222 } }];
-  const ir = async tab => { await p.evaluate(t => localStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: t })), tab);
+  const ir = async tab => { await p.evaluate(t => sessionStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: t })), tab);
     await p.reload(); await p.waitForTimeout(600); };
   await p.evaluate(v => { localStorage.clear(); localStorage.setItem('minicivil', JSON.stringify(v)); localStorage.setItem('minicivil__t', String(Date.now() + 99999)); }, proy);
 

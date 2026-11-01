@@ -39,7 +39,7 @@ const path = require('path');
   const objs = []; for (let i = 0; i <= 6; i++) for (let j = 0; j <= 6; j++) objs.push({ id: 100 + i * 10 + j, t: 'p', x: 1000000 + i * 10, y: 900000 + j * 10, z: 100 + i, nom: String(i * 7 + j + 1), d: 'TN' });
   objs.push({ id: 'muro', t: 'pl', v: [{ x: 1000005, y: 900035 }, { x: 1000055, y: 900035 }] });
   const proyecto = [{ id: 1, nombre: 'Lote', creado: '', dibujos: [{ id: 2, nombre: 'Lev', sig: 60, objs }], superficies: [{ id: 111, nombre: 'Terreno', fuente: { tipo: 'desc', descs: ['TN'] }, color: '#16A34A', curvas: '' }] }];
-  await p.evaluate(v => { localStorage.clear(); localStorage.setItem('minicivil', JSON.stringify(v)); localStorage.setItem('minicivil__t', String(Date.now() + 99999)); localStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'superficies' })); localStorage.setItem('minicivil_supvista', JSON.stringify('editar')); }, proyecto);
+  await p.evaluate(v => { localStorage.clear(); localStorage.setItem('minicivil', JSON.stringify(v)); localStorage.setItem('minicivil__t', String(Date.now() + 99999)); sessionStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'superficies' })); localStorage.setItem('minicivil_supvista', JSON.stringify('editar')); }, proyecto);
   await p.reload(); await p.waitForSelector('.tv-dib-svg'); await p.waitForTimeout(400);
   const datos = () => p.evaluate(() => { vaciarGuardado(); return JSON.parse(localStorage.getItem('minicivil'))[0]; });
   // de terreno a pantalla, con dos puntos que se ven

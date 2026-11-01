@@ -86,7 +86,7 @@ const path = require('path');
   // ── 3. en pantalla ──
   await p.evaluate(v => { localStorage.clear(); localStorage.setItem('minicivil', JSON.stringify(v));
     localStorage.setItem('minicivil__t', String(Date.now() + 99999));
-    localStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'dibujo' })); },
+    sessionStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'dibujo' })); },
     [{ id: 1, nombre: 'Z', creado: '', dibujos: [{ id: 2, nombre: 'd', sig: 9, objs: [
       { id: 1, t: 'pl', c: true, v: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }, { x: 0, y: 10 }] },
       { id: 2, t: 'p', x: -6, y: -8, nom: 'A' }, { id: 3, t: 'p', x: 16, y: 18, nom: 'B' }] }] }]);

@@ -62,7 +62,7 @@ const path = require('path'), fs = require('fs'), os = require('os');
   const proyecto = [{ id: 1, nombre: 'Lote 4', creado: '', dibujos: [{ id: 2, nombre: 'Levantamiento', sig: 200, objs }],
     superficies: [{ id: 'tn', nombre: 'Terreno natural', fuente: { tipo: 'desc', descs: ['TN'] }, color: '#16A34A', curvas: '0.5' }, { id: 'sr', nombre: 'Subrasante', fuente: { tipo: 'desc', descs: ['SR'] }, color: '#B45309', curvas: '' }],
     secciones: { linea: { dibId: 2, objId: 'eje' }, paso: '10', izq: '10', der: '10' } }];
-  await p.evaluate(v => { localStorage.clear(); localStorage.setItem('minicivil', JSON.stringify(v)); localStorage.setItem('minicivil__t', String(Date.now() + 99999)); localStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'presentacion' })); }, proyecto);
+  await p.evaluate(v => { localStorage.clear(); localStorage.setItem('minicivil', JSON.stringify(v)); localStorage.setItem('minicivil__t', String(Date.now() + 99999)); sessionStorage.setItem('minicivil_nav', JSON.stringify({ vista: 'proyecto', id: 1, tab: 'presentacion' })); }, proyecto);
   await p.reload(); await p.waitForSelector('.mc-presentacion'); await p.waitForTimeout(200);
   const datos = () => p.evaluate(() => { vaciarGuardado(); return JSON.parse(localStorage.getItem('minicivil'))[0].presentacion; });
   await p.click('.mc-hoja-nueva'); await p.waitForTimeout(300);
