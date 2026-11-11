@@ -51,7 +51,7 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 
 ## Al publicar (solo cuando Brian lo autorice)
 - Subir `TV_VERSION` en index.html, `CACHE_VERSION` en sw.js (ej. "2" y "minicivil-v2") y la versión del
-  `<title>` (hoy "Mini Civil v68").
+  `<title>` (hoy "Mini Civil v69").
 - `node pruebas/sintaxis.js` (sintaxis de cada `<script>` y versión igual en los dos archivos; corre también en
   GitHub en cada push a `main`, `.github/workflows/sintaxis.yml`).
 - Batería completa, **cada 5 versiones** (última v68, siguiente v73; Brian, 2026-11-01): `node pruebas/correr.js` (57 pruebas en PC, celular y tablet, también sin conexión con servidor real; `SOLO=nombre` corre algunas). Rápidas: `node pruebas/abrir.js` y `W=390 node pruebas/abrir.js` (PC y celular); `node pruebas/importar.js` si se tocaron los puntos o el DXF; `node pruebas/nube.js` si se tocó Drive o los datos.
@@ -76,6 +76,27 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 | PROYECTOS (Mini Civil) | **Espacio en el celular (v26)**: en la pestaña Dibujo no se dibuja `mc-barra-proy`; el botón de volver (`mc-volver`, solo la flecha) y `tv-acciones` (tema, Drive, guardado) van dentro de la fila del dibujo (`mc-barra-dib`), que `App` le pasa a `TabDibujo` en el prop `cabecera`. En las otras pestañas la fila sigue igual. En el Dibujo, nuevo/renombrar/duplicar/borrar/importar/tabla/DXF se fueron al menú `⋯` (`mc-mas`, panel `tv-dib-mas`, botones `mc-mas-*`), y la franja de comando `tv-dib-cmd` flota sobre el lienzo (`position: absolute`, ancho al contenido, `pointer-events: none` salvo en sus botones por la regla del `<style>`; se parte en varias líneas si hay muchos botones). El lienzo pasa de 479 a 601 px en el celular (del 57 % al 71 % de la pantalla). `proyectoNuevo` (`{ id, nombre, creado, dibujos }`), `useLocalProyectos` (guarda en `TV_KEY`, con deshacer), `copiaDeProyectos` (para `FalloApp`), `Logo`, `TarjetaNube`, `PantallaProyectos`, `App` (inicio = lista de proyectos; proyecto = pestañas `nav.tab`: Dibujo, Superficies…; desde la v22, dentro de un proyecto NO se dibuja la barra `tv-header`: el tema, Drive y el estado de guardado van en la fila del proyecto `mc-barra-proy`, y `tv-main` lleva `mc-sin-barra` para el margen de la franja de estado del celular. En el inicio la barra con el logo sigue), `FalloApp`, arranque y aviso de versión nueva |
 
 ## Estado y lo que sigue
+- Versión 69 (2026-11-11, Brian: "revisa toda la app… lo lenta que es al cargar planos; AutoCAD Web y DWG FastView abren planos grandes
+  sin problemas"). Medido con el UBE1901 (22 MB): la primera apertura eran ~16,4 s hasta la revisión y 12 de ellos se iban en pasar lo
+  leído a la app, no en leer. (1) **Lector rápido** (`lib/libredwg/rapido.js`, en el Worker): subclases de los convertidores de la
+  librería (`dist/libredwg-web.js` ahora los exporta: única edición, ver `LEEME.md`) que piden solo lo que se usa (capa, color, tipo de
+  línea, handle; el dueño solo en atributos; sin xdata, miniaturas ni el OLE en hexadecimal) y leen LINE y LWPOLYLINE directo de la
+  memoria del lector (`dwg_dynapi_entity_field_offset` una vez + `dwg_ptr_to_double_array`); los 3 primeros de cada tipo se comparan con
+  la librería y, si no coinciden o `rapido.js` no carga, `lector.js` usa `lib.convert`. `convert` 8,3 → ~3,2 s. (2) **Parejas en
+  binario**: `dwgADxf(db, true)` devuelve `{ cod, val, txt, n }` (código negativo −c−1 = texto en `txt`, cada texto una vez) y viajan
+  sin copiarse; `leerDXFPasos` acepta texto o esas parejas (`pares`), y `num` y los recorridos de vértices no vuelven a leer el número
+  de un texto. El texto DXF (por partes de 4 MB) queda para las pruebas. El DWG se suelta (`dwg_free`) apenas se convierte. (3) `t2` de
+  los bloques sin objetos de paso; `compactarEnSitio` y `tramosGL` ceden por tiempo (~16 ms), no cada 5000 objetos. (4) `dxfIn.texto`
+  ya no guarda lo leído en crudo. (5) La revisión dice las etapas ("leer el DWG · pasarlo · armar los objetos"; `tiempo.lector`).
+  (6) `sw.js`: `dist/libredwg-web.js` y `rapido.js` van con la versión de la app; en `CACHE_LIB` solo queda `wasm/`.
+  **Fidelidad**: con los 5 DWG de Brian y `muestra_2018.dwg`, el texto DXF es idéntico byte por byte al de la v68 y el resultado de
+  `leerDXF` también (huella sin ids; también con el lector de respaldo). Medido aquí (UBE1901, sin tarjeta gráfica): hasta la revisión
+  16,4 → 9,7 s (leer el DWG 2,6 + pasarlo 3,4 + armar 2,9); pico del Worker en Node 1 448 → 745 MB; al dibujar, peor pausa 0,71 → 0,35 s.
+  **No se hizo, por medición**: las búsquedas de `uno()` (81 ms), `dibujarDXF` por tandas (97 ms), `verTodo` doble (0,18 s). Queda:
+  `pasarlo` 3,4 s (lo común de cada objeto son 4 llamadas al wasm; leer la estructura de memoria no salió más barato), pausas de hasta
+  ~0,45 s leyendo, `eje`/`selObj`/`puntosLista` sin `useMemo`, y la copia del equipo + el proyecto temporal escriben el plano dos veces.
+  Ojo al medir aquí: el WebGL por software tarda minutos en `bufferData` con este plano (por eso `webgl.js` dura ~7 min); no es de la app.
+  Guiones de medición en el scratchpad de la sesión (`v69/`: `correr.mjs`, `fiel.js`, `medir.js`).
 - Versión 68 (2026-11-11, Brian: "pongo un punto a mano para darle altura, voy a Elegir y editar para poner la cota y se va a
   copiar, girar o mover"). (1) **Toque que pulsaba el panel**: en el celular, el toque que elige un objeto abre su panel encima del
   lienzo y el clic de compatibilidad del navegador (al soltar el dedo) caía en el botón que quedaba debajo (Mover, Copiar o Girar;
