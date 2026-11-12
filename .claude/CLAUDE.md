@@ -51,7 +51,7 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 
 ## Al publicar (solo cuando Brian lo autorice)
 - Subir `TV_VERSION` en index.html, `CACHE_VERSION` en sw.js (ej. "2" y "minicivil-v2") y la versión del
-  `<title>` (hoy "Mini Civil v69").
+  `<title>` (hoy "Mini Civil v70").
 - `node pruebas/sintaxis.js` (sintaxis de cada `<script>` y versión igual en los dos archivos; corre también en
   GitHub en cada push a `main`, `.github/workflows/sintaxis.yml`).
 - Batería completa, **cada 5 versiones** (última v68, siguiente v73; Brian, 2026-11-01): `node pruebas/correr.js` (57 pruebas en PC, celular y tablet, también sin conexión con servidor real; `SOLO=nombre` corre algunas). Rápidas: `node pruebas/abrir.js` y `W=390 node pruebas/abrir.js` (PC y celular); `node pruebas/importar.js` si se tocaron los puntos o el DXF; `node pruebas/nube.js` si se tocó Drive o los datos.
@@ -76,6 +76,28 @@ clases `tv-*`, eventos `tv-*`) se dejaron iguales a TopoVías para poder copiar 
 | PROYECTOS (Mini Civil) | **Espacio en el celular (v26)**: en la pestaña Dibujo no se dibuja `mc-barra-proy`; el botón de volver (`mc-volver`, solo la flecha) y `tv-acciones` (tema, Drive, guardado) van dentro de la fila del dibujo (`mc-barra-dib`), que `App` le pasa a `TabDibujo` en el prop `cabecera`. En las otras pestañas la fila sigue igual. En el Dibujo, nuevo/renombrar/duplicar/borrar/importar/tabla/DXF se fueron al menú `⋯` (`mc-mas`, panel `tv-dib-mas`, botones `mc-mas-*`), y la franja de comando `tv-dib-cmd` flota sobre el lienzo (`position: absolute`, ancho al contenido, `pointer-events: none` salvo en sus botones por la regla del `<style>`; se parte en varias líneas si hay muchos botones). El lienzo pasa de 479 a 601 px en el celular (del 57 % al 71 % de la pantalla). `proyectoNuevo` (`{ id, nombre, creado, dibujos }`), `useLocalProyectos` (guarda en `TV_KEY`, con deshacer), `copiaDeProyectos` (para `FalloApp`), `Logo`, `TarjetaNube`, `PantallaProyectos`, `App` (inicio = lista de proyectos; proyecto = pestañas `nav.tab`: Dibujo, Superficies…; desde la v22, dentro de un proyecto NO se dibuja la barra `tv-header`: el tema, Drive y el estado de guardado van en la fila del proyecto `mc-barra-proy`, y `tv-main` lleva `mc-sin-barra` para el margen de la franja de estado del celular. En el inicio la barra con el logo sigue), `FalloApp`, arranque y aviso de versión nueva |
 
 ## Estado y lo que sigue
+- Versión 70 (2026-11-12, Brian con capturas del celular en "Preparando el dibujo · 40 000 de 223 037": "aún es muy lenta"). Era un
+  proyecto YA guardado: esa etapa corría entera en cada apertura. Medido aquí abriendo el UBE1901 guardado con el procesador frenado
+  4 veces (guion `abrirproy.js` del scratchpad; la subida a la tarjeta no se puede medir en la nube): 12,2 s hasta poder trabajar.
+  (1) **El plano preparado se guarda, por pedazos** (sección junto a `tramosGL`): `pedazosDe(objs)` da los pedazos guardados tal cual
+  están; `tramosPorPedazos` lee de IndexedDB lo preparado de cada uno (`TV_KEY + "_gl:" + <clave del pedazo>`: grupos y rellenos con
+  sus números justos y dónde quedó cada objeto, `empacarGL`) y solo prepara con `tramosGL` los que faltan o cambiaron; `unirGL` los
+  junta en el resultado de siempre (con `lugares`). Vale si coincide la `firma` (`GL_V`, tema, origen `O`, capas apagadas) y el número
+  de objetos. Puntos y textos se preparan siempre. `siguienteTrozado` borra lo preparado de un pedazo junto con él. Un dibujo que
+  aún no está en pedazos (recién importado) se prepara como antes. `MC_DIB.gl.cache` = "45 de 45"; `window.MC_SIN_GLCACHE` lo apaga y
+  `window.MC_GL_HUELLA` deja `MC_DIB.gl.huella` (para las pruebas). Costo: ~70 MB más en el equipo con ese plano. (2) **Vista previa**:
+  al terminar de preparar se anota `TV_KEY + "_glv:" + <id del dibujo>` (firma, `O`, vista, tamaño); al abrir, `App` llama primero a
+  `leerPrevia` (lee lo preparado, lo deja en `GL_LEIDOS` para que el Dibujo no lo lea dos veces) y `VistaPrevia` lo pinta bajo
+  "Abriendo plano… %"; después arma los objetos. (3) `ceder()` (MessageChannel, sin la espera mínima de 4 ms de `setTimeout`) en
+  `armarProyecto`, `tramosGL`, `compactarEnSitio`, `leerDXFLotes`, `guardarPlano` y `siguienteTrozado`. (4) `eje`, `selObj` y
+  `puntosLista` ya no recorren el plano en cada dibujado (`glRef.current.memoDe`). (5) Aviso "Plano listo en X s (preparar el dibujo
+  Y s · N de M pedazos ya preparados)" una vez por apertura (`window.MC_ABRIR`). Medido (freno 4×): **se ve a los 2,0 s** y queda
+  listo a los 8,6 s (antes 12,2 s; preparar 5,6 → 1,0 s). La primera apertura tras actualizar tarda más (13,9 s: prepara y guarda).
+  Prueba nueva `pruebas/v70.js` (la huella de lo guardado es idéntica a la de preparar todo de una vez, también tras cambiar un
+  objeto; se borra lo que sobra; se ve la vista previa). **No se hizo, por medición**: `verTodo` (lo caro es medir las cajas, que hace
+  falta igual), el camino rápido de `tramosGL` (ya casi no corre) y la marca de `idsUnicos`. **Lo que queda**: leer y armar los
+  223 000 objetos del disco (~5 s con freno 4×; `t.oncomplete` de IndexedDB 2,1 s): solo bajaría guardando los pedazos en binario
+  (cambia el formato guardado: pedir permiso a Brian) o dejando editar antes de tener todos los objetos.
 - Versión 69 (2026-11-11, Brian: "revisa toda la app… lo lenta que es al cargar planos; AutoCAD Web y DWG FastView abren planos grandes
   sin problemas"). Medido con el UBE1901 (22 MB): la primera apertura eran ~16,4 s hasta la revisión y 12 de ellos se iban en pasar lo
   leído a la app, no en leer. (1) **Lector rápido** (`lib/libredwg/rapido.js`, en el Worker): subclases de los convertidores de la
